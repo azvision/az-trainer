@@ -18,7 +18,7 @@ if errorlevel 1 (
 
 REM Pull latest changes from the remote repository
 echo Pulling latest changes from the remote repository...
-git pull origin master
+git pull origin production
 if errorlevel 1 (
     echo Failed to pull latest changes. Exiting...
     exit /b 1
