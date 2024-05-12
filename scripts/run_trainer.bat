@@ -1,12 +1,17 @@
 @echo off
 set "PROJECT_DIR=C:\azvision\trainer"
 set "TRAINER_SCRIPT=%PROJECT_DIR%\src\trainer.py"
+set "VENV_DIR=%PROJECT_DIR%\.venv"
 
 REM Change directory to the project directory
 cd /d "%PROJECT_DIR%" || (
     echo Failed to change directory to "%PROJECT_DIR%". Exiting...
     exit /b 1
 )
+
+REM Activate the virtual environment
+echo Activating virtual environment...
+call "%VENV_DIR%\Scripts\activate.bat"
 
 REM Fetch latest changes from the remote repository
 echo Fetching latest changes from the remote repository...
@@ -26,6 +31,6 @@ if errorlevel 1 (
 
 REM Start the trainer script
 echo Starting the trainer script...
-start "" "%TRAINER_SCRIPT%"
+"python" "%TRAINER_SCRIPT%"
 
 exit /b 0
