@@ -17,11 +17,11 @@ SIZE = 256, 256
 ZOOM_RATIO = 2
 
 
-class Trainer():
+class LabelTool():
     def __init__(self, master):
         # set up the main frame
         self.rootPanel = master
-        self.rootPanel.title("AZ Vision - Annotations")
+        self.rootPanel.title("AZ Vision - Trainer")
         self.rootPanel.resizable(width=False, height=False)
 
         # initialize global state
@@ -34,17 +34,13 @@ class Trainer():
         self.tkimg = None
         self.currentLabelClass = ''
         self.classesList = []
-        self.classCandidateFilename = 'class.txt'
-        self.data_repo = "az-datasets"
-        self.annotations_dir = "merged-files"
-        self.annotations_batch = "test"
+        self.classCandidateFilename = 'src/class.txt'
+        self.annotations_batch = "batch-001"
         self.fileNameExt = "jpg"
 
-        self.data_repo_path = os.path.join(str(pathlib.Path(__file__).parent.resolve().parent),  # parent dir
-                                           self.data_repo)
-
-        self.default_images_filepath = os.path.join(self.data_repo_path,
-                                                    self.annotations_dir,
+        self.images_path = os.path.join('C:\\', 'azvision', 'batches')
+        self.this_repo = str(pathlib.Path(__file__).parent.resolve().parent)
+        self.default_images_filepath = os.path.join(self.images_path,
                                                     self.annotations_batch)
 
         # initialize mouse state
@@ -185,7 +181,7 @@ class Trainer():
         self.total = len(self.imageList)
 
         # Load a model
-        self.model = YOLO(os.path.join(self.data_repo_path, "models", "best.pt"))
+        self.model = YOLO(os.path.join(self.this_repo, "models", "best.pt"))
 
         self.loadImage()
 
@@ -440,6 +436,6 @@ class Trainer():
 
 if __name__ == '__main__':
     root = Tk()
-    tool = Trainer(root)
+    tool = LabelTool(root)
     root.resizable(width=True, height=True)
     root.mainloop()
