@@ -5,7 +5,7 @@ set "GIT_INSTALLER=PortableGit-2.33.1-64-bit.7z.exe"
 set "GIT_INSTALLER_PATH=%TEMP%\%GIT_INSTALLER%"
 
 REM Check if Python 3.9 or greater is already installed
-pythonx --version | findstr /C:"Python 3" >nul
+python --version | findstr /C:"Python 3" >nul
 if %errorlevel% equ 0 (
     echo Python 3 is already installed. Skipping installation.
 ) else (
