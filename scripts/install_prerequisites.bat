@@ -38,8 +38,8 @@ REM Check if either Python or Git was installed, and restart if necessary
 python --version >nul 2>&1 || git --version >nul 2>&1
 if %errorlevel% equ 0 (
     echo Prerequisites installation completed successfully. Restarting...
-    timeout /t 5 /nobreak >nul
-    shutdown /r /t 0
+    REM timeout /t 5 /nobreak >nul
+    REM shutdown /r /t 0
 ) else (
     echo No prerequisites were installed. Exiting...
 )
