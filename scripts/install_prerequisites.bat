@@ -5,17 +5,22 @@ set "GIT_INSTALLER=PortableGit-2.33.1-64-bit.7z.exe"
 set "GIT_INSTALLER_PATH=%TEMP%\%GIT_INSTALLER%"
 
 REM Check if Python 3.9 or greater is already installed
-python --version | findstr /C:"Python 3" >nul
+pythonx --version | findstr /C:"Python 3" >nul
 if %errorlevel% equ 0 (
     echo Python 3 is already installed. Skipping installation.
 ) else (
-    REM Install Python
-    echo Installing Python %PYTHON_VERSION%...
-    python-%PYTHON_VERSION%.exe /quiet InstallAllUsers=1 PrependPath=1
-    if errorlevel 1 (
-        echo Failed to install Python. Exiting...
-        exit /b 1
-    )
+    REM Download Python installer
+    echo Downloading Python installer...
+    curl https://www.python.org/ftp/python/3.12.2/python-3.12.2-amd64.exe -o python_install.exe
+
+    REM Install Python quietly
+    echo Installing Python...
+    python_install.exe /quiet InstallAllUsers=1 PrependPath=1
+
+    REM Cleanup: Delete the Python installer
+    del "python_install.exe"
+
+    echo Python installation completed.
 )
 
 REM Check if Git is already installed
@@ -23,22 +28,16 @@ git --version >nul 2>&1
 if %errorlevel% equ 0 (
     echo Git is already installed. Skipping installation.
 ) else (
-    REM Download and install portable Git
-    echo Downloading Git...
-    bitsadmin.exe /transfer GitDownload /priority high %GIT_INSTALLER_URL% "%GIT_INSTALLER_PATH%"
-    echo Installing Git...
-    "%GIT_INSTALLER_PATH%" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
-    if errorlevel 1 (
-        echo Failed to install Git. Exiting...
-        exit /b 1
-    )
+    REM Download and install Git
+    @"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "[System.Net.ServicePointManager]::SecurityProtocol = 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
+    choco install git
 )
 
-REM Check if either Python or Git was installed, and restart if necessary
-python --version >nul 2>&1 || git --version >nul 2>&1
-if %errorlevel% equ 0 (
+REM Check if both Python and Git are not installed
+where python >nul 2>&1 && where git >nul 2>&1
+if %errorlevel% equ 1 (
     echo Prerequisites installation completed successfully. Restarting...
-    REM timeout /t 5 /nobreak >nul
+    timeout /t 5 /nobreak >nul
     REM shutdown /r /t 0
 ) else (
     echo No prerequisites were installed. Exiting...
