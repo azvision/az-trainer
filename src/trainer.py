@@ -242,9 +242,9 @@ class LabelTool():
         rgbImgFilePath = os.path.join(self.imageDir, self.imgRootName + "." + self.fileNameExt)
         predictions = self.model(rgbImgFilePath)  # predict on an image
         results = []
-        classIndex = 0
         for result in predictions:
             for box in result.boxes:
+                classIndex = int(box.cls.item())
                 for x1, y1, x2, y2 in box.xyxy:
                     results.append((int(x1)*ZOOM_RATIO, int(y1)*ZOOM_RATIO, int(x2)*ZOOM_RATIO, int(y2)*ZOOM_RATIO, classIndex))
         return results
