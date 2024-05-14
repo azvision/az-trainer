@@ -243,6 +243,7 @@ class LabelTool():
         predictions = self.model(rgbImgFilePath)  # predict on an image
         results = []
         for result in predictions:
+            # probs = result.probs  # Probs object for classification outputs
             for box in result.boxes:
                 classIndex = int(box.cls.item())
                 for x1, y1, x2, y2 in box.xyxy:
