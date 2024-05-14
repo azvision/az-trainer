@@ -283,10 +283,10 @@ class LabelTool():
 
     def mouseClick(self, event):
         if self.STATE == {}:
-            self.STATE['x1'], self.STATE['y1'], self.STATE['class'] = event.x, event.y, self.currentLabelClass
+            self.STATE['class'], self.STATE['x1'], self.STATE['y1'] = self.currentLabelClass, event.x, event.y
         else:
-            self.STATE['x2'], self.STATE['y2'] = event.x, event.y
-            bboxId = self.createBBox(self.STATE['x1'], self.STATE['y1'], self.STATE['x2'], self.STATE['y2'])
+            self.STATE['x2'], self.STATE['y2'], self.STATE['selected'] = event.x, event.y, True
+            bboxId = self.createBBox(self.STATE['x1'], self.STATE['y1'], self.STATE['x2'], self.STATE['y2'], selected=self.STATE['selected'])
             self.STATE['id'] = bboxId
             self.annotationsList.insert(END, self.STATE)
             self.STATE = {}
