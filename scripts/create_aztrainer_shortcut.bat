@@ -3,6 +3,13 @@ set "SCRIPT_DIR=C:\azvision\trainer\scripts"
 set "DESKTOP_DIR=%USERPROFILE%\Desktop"
 set "SHORTCUT_NAME=AZ Trainer"
 
+REM Delete existing shortcut if it exists
+if exist "%DESKTOP_DIR%\%SHORTCUT_NAME%.lnk" (
+    echo Deleting existing shortcut...
+    del "%DESKTOP_DIR%\%SHORTCUT_NAME%.lnk"
+    echo Existing shortcut deleted successfully.
+)
+
 REM Create a shortcut to the script on the desktop
 echo Creating desktop shortcut...
 echo Set oWS = WScript.CreateObject("WScript.Shell") > "%TEMP%\create_shortcut.vbs"
