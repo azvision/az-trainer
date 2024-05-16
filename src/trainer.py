@@ -35,7 +35,7 @@ class LabelTool():
         self.currentLabelClass = ''
         self.classesList = []
         self.classCandidateFilename = 'src/class.txt'
-        self.annotations_batch = "batch-001"
+        self.annotations_batch = "batch-002"
         self.fileNameExt = "jpg"
 
         self.images_path = os.path.join('C:\\', 'azvision', 'batches')
