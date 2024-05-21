@@ -171,6 +171,8 @@ class LabelTool():
         filelist = glob.glob(os.path.join(self.imageDir, "*." + self.fileNameExt))
         filelist = [f.split("\\")[-1] for f in filelist]  # in form of filename
         filelist = [os.path.splitext(f)[0] for f in filelist]  # remove extension
+        self.imageList = [] # resets the list because the program.
+                            # gets in a loop after loading a new directory (after one has already been loaded).
         self.imageList.extend(filelist)
 
         if len(self.imageList) == 0:
