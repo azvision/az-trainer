@@ -291,6 +291,9 @@ class LabelTool():
             self.STATE['x2'], self.STATE['y2'], self.STATE['selected'] = event.x, event.y, True
             bboxId = self.createBBox(self.STATE['x1'], self.STATE['y1'], self.STATE['x2'], self.STATE['y2'], selected=self.STATE['selected'])
             self.STATE['id'] = bboxId
+
+            # TODO: set all other boxes to selected=False
+
             self.annotationsList.insert(END, self.STATE)
             self.STATE = {}
 
