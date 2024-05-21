@@ -210,14 +210,14 @@ class LabelTool():
         if xyxyList is None:
             xyxyList = self.getPredictionsFromYolo()
 
-        for x1, y1, x2, y2, classIndex in xyxyList:
-            box_string = self.get_bbox_string(x1, y1, x2, y2, classIndex)
+        for x1, y1, x2, y2, classIndex, selected in xyxyList:
+            box_string = self.get_bbox_string(x1, y1, x2, y2, classIndex, selected)
             self.annotationsList.insert(END, box_string)
             self.annotationsList.itemconfig(END, {'fg': COLORS[classIndex]})
 
-    def get_bbox_string(self, x1, y1, x2, y2, classIndex):
-        bboxId = self.createBBox(x1, y1, x2, y2, COLORS[classIndex])
-        box_string = f"{{'class':'{self.classesList[classIndex]}', 'x1':{x1}, 'y1':{y1}, 'x2': {x2}, 'y2': {y2}, 'id':{bboxId}  }}"
+    def get_bbox_string(self, x1, y1, x2, y2, classIndex, selected):
+        bboxId = self.createBBox(x1, y1, x2, y2, COLORS[classIndex, selected])
+        box_string = f"{{'class':'{self.classesList[classIndex]}', 'x1':{x1}, 'y1':{y1}, 'x2': {x2}, 'y2': {y2}, 'id':{bboxId}, 'selected':{selected}  }}"
         return box_string
 
     def getBoxesFromFile(self):
@@ -236,7 +236,7 @@ class LabelTool():
                     y1 = cy - hh
                     x2 = cx + hw
                     y2 = cy + hh
-                    results.append((x1, y1, x2, y2, classIndex))
+                    results.append((x1, y1, x2, y2, classIndex, False))
         else:
             return None
         return results
@@ -250,7 +250,7 @@ class LabelTool():
             for box in result.boxes:
                 classIndex = int(box.cls.item())
                 for x1, y1, x2, y2 in box.xyxy:
-                    results.append((int(x1)*ZOOM_RATIO, int(y1)*ZOOM_RATIO, int(x2)*ZOOM_RATIO, int(y2)*ZOOM_RATIO, classIndex))
+                    results.append((int(x1)*ZOOM_RATIO, int(y1)*ZOOM_RATIO, int(x2)*ZOOM_RATIO, int(y2)*ZOOM_RATIO, classIndex, False))
         return results
 
     def loadImgFromDisk(self, fullFilePath):
@@ -292,7 +292,13 @@ class LabelTool():
             bboxId = self.createBBox(self.STATE['x1'], self.STATE['y1'], self.STATE['x2'], self.STATE['y2'], selected=self.STATE['selected'])
             self.STATE['id'] = bboxId
 
-            # TODO: set all other boxes to selected=False
+            idx = 0
+            for item in self.annotationsList.get(0, END):
+                bbox = ast.literal_eval(item)
+                bbox["selected"] = False
+                self.annotationsList.delete(idx)
+                self.annotationsList.insert(0, str(bbox))
+                idx += 1
 
             self.annotationsList.insert(END, self.STATE)
             self.STATE = {}
