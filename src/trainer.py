@@ -107,7 +107,7 @@ class LabelTool():
         Label(self.ctrClassPanel, text='Annotations:').grid(row=3, column=0, sticky=W+N)
         Button(self.ctrClassPanel, text='Delete Selected (z)', command=self.delBBox).grid(row=4, column=0, sticky=W+E+N)
         Button(self.ctrClassPanel, text='Clear All (x)', command=self.clearBBox).grid(row=4, column=1, sticky=W+E+S)
-        self.annotationsList = Listbox(self.ctrClassPanel, width=60, height=12, selectmode="SINGLE")
+        self.annotationsList = Listbox(self.ctrClassPanel, width=70, height=12, selectmode="SINGLE")
         self.annotationsList.grid(row=5, column=0, columnspan=2, sticky=N+S+W)
         self.annotationsList.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.annotationsList.bind("1", self.setClass)  # press to select class
@@ -216,7 +216,7 @@ class LabelTool():
             self.annotationsList.itemconfig(END, {'fg': COLORS[classIndex]})
 
     def get_bbox_string(self, x1, y1, x2, y2, classIndex, selected):
-        bboxId = self.createBBox(x1, y1, x2, y2, COLORS[classIndex, selected])
+        bboxId = self.createBBox(x1, y1, x2, y2, COLORS[classIndex], selected)
         box_string = f"{{'class':'{self.classesList[classIndex]}', 'x1':{x1}, 'y1':{y1}, 'x2': {x2}, 'y2': {y2}, 'id':{bboxId}, 'selected':{selected}  }}"
         return box_string
 
