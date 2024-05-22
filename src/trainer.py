@@ -41,6 +41,7 @@ class LabelTool:
         self.annotations_batch = "batch-002"
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
+        self.nextBboxAfterClass = True
 
         self.images_path = os.path.join('C:\\', 'azvision', 'batches')
         self.this_repo = str(pathlib.Path(__file__).parent.resolve().parent)
@@ -105,6 +106,10 @@ class LabelTool:
         self.classCandidate['values'] = self.classesList
         self.classCandidate.current(0)
         self.currentLabelClass = self.classCandidate.get()
+
+        Label(self.ctrClassPanel, text='Next box on class set:').grid(row=1, column=1, sticky=W)
+        self.bNextBboxAfterClass = Button(self.ctrClassPanel, text='ON', command=self.toggle_next_bbox_after_class)
+        self.bNextBboxAfterClass.grid(row=2, column=1, sticky=W + N)
 
         # showing bbox info & delete bbox
         Label(self.ctrClassPanel, text='Annotations:').grid(row=3, column=0, sticky=W + N)
@@ -322,6 +327,11 @@ class LabelTool:
 
             self.annotationsList.focus_set()
 
+    def toggle_next_bbox_after_class(self):
+        self.nextBboxAfterClass = not self.nextBboxAfterClass
+        new_text = "ON" if self.nextBboxAfterClass else "OFF"
+        self.bNextBboxAfterClass.config(text=new_text)
+
     def create_bbox(self, x1, y1, x2, y2, color=COLORS[0], selected=False):
         rectangle_width = 2 if selected else 1
         bbox_id = self.mainPanel.create_rectangle(x1, y1, x2, y2, width=rectangle_width, outline=color)
@@ -408,7 +418,8 @@ class LabelTool:
 
             idx += 1
 
-        self.arrow_down()
+        if self.nextBboxAfterClass:
+            self.arrow_down()
 
         self.render_boxes()
 
