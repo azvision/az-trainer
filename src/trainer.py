@@ -407,6 +407,9 @@ class LabelTool:
                     self.annotationsList.itemconfig(idx, {'fg': COLORS[target_class_index]})
 
             idx += 1
+
+        self.arrow_down()
+
         self.render_boxes()
 
     def arrow_up(self, event=None):
