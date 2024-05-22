@@ -272,7 +272,7 @@ class LabelTool:
             for box in result.boxes:
                 class_index = int(box.cls.item())
                 for x1, y1, x2, y2 in box.xyxy:
-                    results.append((int(x1) * ZOOM_RATIO, int(y1) * ZOOM_RATIO, int(x2) * ZOOM_RATIO, (y2) * ZOOM_RATIO, class_index, False))
+                    results.append((int(x1) * ZOOM_RATIO, int(y1) * ZOOM_RATIO, int(x2) * ZOOM_RATIO, int(y2) * ZOOM_RATIO, class_index, False))
         return results
 
     def load_img_from_disk(self, full_file_path):
