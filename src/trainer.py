@@ -43,8 +43,7 @@ class LabelTool:
 
         self.images_path = os.path.join('C:\\', 'azvision', 'batches')
         self.this_repo = str(pathlib.Path(__file__).parent.resolve().parent)
-        self.default_images_filepath = os.path.join(self.images_path,
-                                                    self.annotations_batch)
+        self.default_images_filepath = os.path.join(self.images_path, self.annotations_batch)
 
         # initialize mouse state
         self.STATE = {}
@@ -63,12 +62,12 @@ class LabelTool:
 
         # Top panel stuff
         self.ctrTopPanel = Frame(self.rootPanel)
-        self.ctrTopPanel.grid(row=0, column=1, sticky=W+N)
+        self.ctrTopPanel.grid(row=0, column=1, sticky=W + N)
         Button(self.ctrTopPanel, text="Image input folder", command=self.select_src_dir).grid(row=0, column=0)
 
         # input image dir entry
         self.svSourcePath = StringVar()
-        Entry(self.ctrTopPanel, textvariable=self.svSourcePath, width=70).grid(row=0, column=1, sticky=W+E, padx=5)
+        Entry(self.ctrTopPanel, textvariable=self.svSourcePath, width=70).grid(row=0, column=1, sticky=W + E, padx=5)
         self.svSourcePath.set(self.default_images_filepath)
 
         # Button load dir
@@ -79,7 +78,7 @@ class LabelTool:
 
         # main panel for labeling
         self.mainPanel = Canvas(self.rootPanel, cursor='tcross')
-        self.mainPanel.grid(row=1, column=1, sticky=W+N)
+        self.mainPanel.grid(row=1, column=1, sticky=W + N)
         self.mainPanel.bind("<Button-1>", self.mouse_click)
         self.mainPanel.bind("<Motion>", self.mouse_move)
 
@@ -92,7 +91,7 @@ class LabelTool:
 
         # Class panel
         self.ctrClassPanel = Frame(self.rootPanel)
-        self.ctrClassPanel.grid(row=1, column=2, sticky=W+N)
+        self.ctrClassPanel.grid(row=1, column=2, sticky=W + N)
 
         Label(self.ctrClassPanel, text='Classes:').grid(row=1, column=0, sticky=W)
         self.className = StringVar()
@@ -107,11 +106,11 @@ class LabelTool:
         self.currentLabelClass = self.classCandidate.get()
 
         # showing bbox info & delete bbox
-        Label(self.ctrClassPanel, text='Annotations:').grid(row=3, column=0, sticky=W+N)
-        Button(self.ctrClassPanel, text='Delete Selected (z)', command=self.del_bbox).grid(row=4, column=0, sticky=W+E+N)
-        Button(self.ctrClassPanel, text='Clear All (x)', command=self.clear_bbox).grid(row=4, column=1, sticky=W+E+S)
+        Label(self.ctrClassPanel, text='Annotations:').grid(row=3, column=0, sticky=W + N)
+        Button(self.ctrClassPanel, text='Delete Selected (z)', command=self.del_bbox).grid(row=4, column=0, sticky=W + E + N)
+        Button(self.ctrClassPanel, text='Clear All (x)', command=self.clear_bbox).grid(row=4, column=1, sticky=W + E + S)
         self.annotationsList = Listbox(self.ctrClassPanel, width=70, height=12, selectmode="SINGLE")
-        self.annotationsList.grid(row=5, column=0, columnspan=2, sticky=N+S+W)
+        self.annotationsList.grid(row=5, column=0, columnspan=2, sticky=N + S + W)
         self.annotationsList.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.annotationsList.bind("1", self.set_class)  # press to select class
         self.annotationsList.bind("2", self.set_class)  # press to select class
@@ -124,12 +123,17 @@ class LabelTool:
         self.annotationsList.bind("9", self.set_class)  # press to select class
         self.annotationsList.focus_set()
 
+        master.unbind_all("<Tab>")  # removing default Tab behavior
+        master.unbind_all("<<NextWindow>>")
+        master.unbind_all("<<PrevWindow>>")
+        #self.rootPanel.bind("<Tab>", self.select_next_bbox)  # press to select next box in the list
+
         # control panel GoTo
 
         Label(self.ctrClassPanel, text='  \n  ').grid(row=7, column=0, columnspan=2)
 
         self.ctrGoToPanel = Frame(self.ctrClassPanel)
-        self.ctrGoToPanel.grid(row=8, column=0, columnspan=2, sticky=W+E)
+        self.ctrGoToPanel.grid(row=8, column=0, columnspan=2, sticky=W + E)
         self.tmpLabel = Label(self.ctrGoToPanel, text="Go to Image No.")
         self.tmpLabel.pack(side=LEFT, padx=5)
         self.idxEntry = Entry(self.ctrGoToPanel, width=5)
@@ -141,7 +145,7 @@ class LabelTool:
 
         # Navigation control panel
         self.ctrNavigatePanel = Frame(self.ctrClassPanel)
-        self.ctrNavigatePanel.grid(row=10, column=0, columnspan=2, sticky=W+E)
+        self.ctrNavigatePanel.grid(row=10, column=0, columnspan=2, sticky=W + E)
         self.prevBtn = Button(self.ctrNavigatePanel, text='<< Prev (a)', width=10, command=self.prev_image)
         self.prevBtn.pack(side=LEFT, padx=5, pady=3)
         self.nextBtn = Button(self.ctrNavigatePanel, text='(d) Next >>', width=10, command=self.next_image)
@@ -158,7 +162,6 @@ class LabelTool:
     def select_src_dir(self):
         path = filedialog.askdirectory(title="Select image source folder", initialdir=self.svSourcePath.get())
         self.svSourcePath.set(path)
-        return
 
     def load_dir(self):
         self.rootPanel.focus()
@@ -199,11 +202,11 @@ class LabelTool:
         self.imgRootName = self.imageList[self.cur - 1]
         img_file_path = os.path.join(self.imageDir, self.imgRootName + "." + self.fileNameExt)
         self.tkimg = self.load_img_from_disk(img_file_path)
-        img_width = max(self.tkimg.width()*ZOOM_RATIO, 10)
-        img_height = max(self.tkimg.height()*ZOOM_RATIO, 10)
+        img_width = max(self.tkimg.width() * ZOOM_RATIO, 10)
+        img_height = max(self.tkimg.height() * ZOOM_RATIO, 10)
         self.tkimg = self.tkimg._PhotoImage__photo.zoom(ZOOM_RATIO)
         self.mainPanel.config(width=img_width, height=img_height)
-        self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N+W)
+        self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N + W)
 
         self.progLabel.config(text=f"{self.cur}/{self.total}")
         self.lblFilename.config(text=f"Filename: {self.imgRootName}")
@@ -220,6 +223,8 @@ class LabelTool:
             box_string = self.get_bbox_string(x1, y1, x2, y2, classIndex, True if first else selected)
             self.annotationsList.insert(END, box_string)
             self.annotationsList.itemconfig(END, {'fg': COLORS[classIndex]})
+            if first:
+                self.annotationsList.activate(0)
             first = False
 
     def get_bbox_string(self, x1, y1, x2, y2, class_index, selected):
@@ -235,10 +240,10 @@ class LabelTool:
                 for i, line in enumerate(f):
                     tmp = line.split()
                     class_index = int(tmp[0])
-                    cx = int(float(tmp[1])*img_width)
-                    cy = int(float(tmp[2])*img_height)
-                    hw = int(float(tmp[3])*img_width/2)
-                    hh = int(float(tmp[4])*img_height/2)
+                    cx = int(float(tmp[1]) * img_width)
+                    cy = int(float(tmp[2]) * img_height)
+                    hw = int(float(tmp[3]) * img_width / 2)
+                    hh = int(float(tmp[4]) * img_height / 2)
                     x1 = cx - hw
                     y1 = cy - hh
                     x2 = cx + hw
@@ -257,14 +262,14 @@ class LabelTool:
             for box in result.boxes:
                 class_index = int(box.cls.item())
                 for x1, y1, x2, y2 in box.xyxy:
-                    results.append((int(x1)*ZOOM_RATIO, int(y1)*ZOOM_RATIO, int(x2)*ZOOM_RATIO, int(y2)*ZOOM_RATIO, class_index, False))
+                    results.append((int(x1) * ZOOM_RATIO, int(y1) * ZOOM_RATIO, int(x2) * ZOOM_RATIO, (y2) * ZOOM_RATIO, class_index, False))
         return results
 
     def load_img_from_disk(self, full_file_path):
         loaded_img = Image.open(full_file_path)
         size = loaded_img.size
-        img_factor = max(size[0]/1000, size[1]/1000., 1.)
-        loaded_img = loaded_img.resize((int(size[0]/img_factor), int(size[1]/img_factor)))
+        img_factor = max(size[0] / 1000, size[1] / 1000., 1.)
+        loaded_img = loaded_img.resize((int(size[0] / img_factor), int(size[1] / img_factor)))
         return ImageTk.PhotoImage(loaded_img)
 
     def save_image(self):
@@ -299,11 +304,11 @@ class LabelTool:
             bbox_id = self.create_bbox(self.STATE['x1'], self.STATE['y1'], self.STATE['x2'], self.STATE['y2'], COLORS[self.get_index_of_class(self.STATE['class'])], True)
             self.STATE['id'], self.STATE['selected'] = bbox_id, True  # attributes in order
 
-            # For other boxes, set the "selected" attribute to False
+            # For other boxes, set the 'selected' attribute to False
             idx = 0
             for item in self.annotationsList.get(0, END):
                 bbox = ast.literal_eval(item)
-                bbox["selected"] = False
+                bbox['selected'] = False
                 self.annotationsList.delete(idx)
                 self.annotationsList.insert(0, str(bbox))
                 idx += 1
@@ -350,16 +355,22 @@ class LabelTool:
 
     def clear_bbox(self, event=None):
         num_elements = len(self.annotationsList.get(0, END))
-        self.annotationsList.delete(0, num_elements-1)
+        self.annotationsList.delete(0, num_elements - 1)
         self.render_boxes()
 
     def prev_image(self, event=None):
+        if len(self.imageList) < 1:
+            return False
+
         self.save_image()
         if self.cur > 1:
             self.cur -= 1
             self.load_image()
 
     def next_image(self, event=None):
+        if len(self.imageList) < 1:
+            return False
+
         self.save_image()
         if self.cur < self.total:
             self.cur += 1
@@ -373,7 +384,7 @@ class LabelTool:
             self.load_image()
 
     def set_class(self, key):
-        self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N+W)
+        self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N + W)
         idx = 0
         for item in self.annotationsList.get(0, END):
             bbox = ast.literal_eval(item)
@@ -394,51 +405,55 @@ class LabelTool:
             idx += 1
         self.render_boxes()
 
-    def on_listbox_select(self, event):
-        selected_indices = event.widget.curselection()
+    def on_listbox_select(self, event=None):
+        if self.annotationsList.size() < 1:
+            return
+
+        selected_indices = self.annotationsList.curselection()
+        # TODO: arrows return empty indices for some reason, even though the item gets underlined which means its active
 
         if selected_indices:
             # Get the selected item's index
             idx = selected_indices[0]
 
             # Retrieve the current string value from the selected item
-            selected_str = event.widget.get(idx)
+            selected_str = self.annotationsList.get(idx)
 
             try:
                 # Safely evaluate the string as a Python literal expression
                 selected_dict = ast.literal_eval(selected_str)
                 selected_class = self.get_index_of_class(selected_dict['class'])
 
-                # Update the dictionary to include "selected": true
-                selected_dict["selected"] = True
+                # Update the dictionary to include 'selected': true
+                selected_dict['selected'] = True
 
                 # Convert the updated dictionary back to a string
                 updated_str = str(selected_dict)
 
                 # Set the updated string as the value of the selected item
-                event.widget.delete(idx)
-                event.widget.insert(idx, updated_str)
-                event.widget.itemconfig(idx, {'fg': COLORS[selected_class]})
+                self.annotationsList.delete(idx)
+                self.annotationsList.insert(idx, updated_str)
+                self.annotationsList.itemconfig(idx, {'fg': COLORS[selected_class]})
 
-                # For other items, set the "selected" attribute to False
-                for i in range(event.widget.size()):
+                # For other items, set the 'selected' attribute to False
+                for i in range(self.annotationsList.size()):
                     if i != idx:
-                        other_str = event.widget.get(i)
+                        other_str = self.annotationsList.get(i)
                         other_dict = ast.literal_eval(other_str)
                         other_class = self.get_index_of_class(other_dict['class'])
 
-                        if "selected" in other_dict:
-                            other_dict["selected"] = False
+                        if 'selected' in other_dict:
+                            other_dict['selected'] = False
 
-                        event.widget.delete(i)
-                        event.widget.insert(i, str(other_dict))
-                        event.widget.itemconfig(i, {'fg': COLORS[other_class]})
+                        self.annotationsList.delete(i)
+                        self.annotationsList.insert(i, str(other_dict))
+                        self.annotationsList.itemconfig(i, {'fg': COLORS[other_class]})
                 self.render_boxes()
             except (ValueError, SyntaxError) as e:
                 print("Error:", e)
 
     def render_boxes(self):
-        self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N+W)
+        self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N + W)
         for item in self.annotationsList.get(0, END):
             bbox = ast.literal_eval(item)
             self.mainPanel.delete(bbox['id'])
