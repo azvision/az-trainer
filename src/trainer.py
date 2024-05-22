@@ -450,7 +450,6 @@ class LabelTool:
         else:
             idx = self.selectedBbox
 
-
         # Retrieve the current string value from the selected item
         selected_str = self.annotationsList.get(idx)
 
@@ -493,7 +492,7 @@ class LabelTool:
             bbox = ast.literal_eval(item)
             self.mainPanel.delete(bbox['id'])
             current_class = self.get_index_of_class(bbox['class'])
-            self.create_bbox(bbox['x1'], bbox['y1'], bbox['x2'], bbox['y2'], color=COLORS[current_class], selected=bbox.get('selected', False))
+            self.create_bbox(bbox['x1'], bbox['y1'], bbox['x2'], bbox['y2'], color=COLORS[current_class], selected=bbox['selected'])
 
     def get_index_of_class(self, search_string):
         try:
