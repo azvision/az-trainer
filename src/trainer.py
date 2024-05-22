@@ -52,8 +52,8 @@ class LabelTool:
         # reference to bbox
         self.bboxIdList = []
         self.curBBoxId = None
-        self.heightLine = None
-        self.widthLine = None
+        self.horizontalLine = None
+        self.verticalLine = None
 
         # ----------------- GUI stuff ---------------------
 
@@ -313,12 +313,12 @@ class LabelTool:
     def mouse_move(self, event):
         self.disp.config(text=f'x: {event.x}, y: {event.y}')
         if self.tkimg:
-            if self.heightLine:
-                self.mainPanel.delete(self.heightLine)
-            self.heightLine = self.mainPanel.create_line(0, event.y, self.tkimg.width(), event.y, width=2)
-            if self.widthLine:
-                self.mainPanel.delete(self.widthLine)
-            self.widthLine = self.mainPanel.create_line(event.x, 0, event.x, self.tkimg.height(), width=2)
+            if self.horizontalLine:
+                self.mainPanel.delete(self.horizontalLine)
+            self.horizontalLine = self.mainPanel.create_line(0, event.y, self.tkimg.width(), event.y, width=2)
+            if self.verticalLine:
+                self.mainPanel.delete(self.verticalLine)
+            self.verticalLine = self.mainPanel.create_line(event.x, 0, event.x, self.tkimg.height(), width=2)
         if self.STATE != {}:
             if self.curBBoxId:
                 self.mainPanel.delete(self.curBBoxId)
