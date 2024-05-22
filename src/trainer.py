@@ -367,11 +367,18 @@ class LabelTool:
                 self.mainPanel.delete(bbox['id'])
                 self.annotationsList.delete(idx)
             idx += 1
+
+        if self.selectedBbox >= self.annotationsList.size():
+            self.selectedBbox = 0
+
+        self.on_listbox_select()
         self.render_boxes()
+
 
     def clear_bbox(self, event=None):
         num_elements = len(self.annotationsList.get(0, END))
         self.annotationsList.delete(0, num_elements - 1)
+        self.selectedBbox = 0
         self.render_boxes()
 
     def prev_image(self, event=None):
@@ -417,7 +424,6 @@ class LabelTool:
                     self.annotationsList.delete(idx)
                     self.annotationsList.insert(idx, bbox)
                     self.annotationsList.itemconfig(idx, {'fg': COLORS[target_class_index]})
-
             idx += 1
 
         if self.nextBboxAfterClass:
@@ -483,8 +489,8 @@ class LabelTool:
                     self.annotationsList.insert(i, str(other_dict))
                     self.annotationsList.itemconfig(i, {'fg': COLORS[other_class]})
             self.render_boxes()
-        except (ValueError, SyntaxError) as e:
-            print("Error:", e)
+        except (ValueError, SyntaxError) as exception:
+            print("Error:", exception)
 
     def render_boxes(self):
         self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N + W)
