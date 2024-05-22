@@ -40,6 +40,7 @@ class LabelTool:
         self.classCandidateFilename = 'src/class.txt'
         self.annotations_batch = "batch-002"
         self.fileNameExt = "jpg"
+        self.selectedBbox = 0
 
         self.images_path = os.path.join('C:\\', 'azvision', 'batches')
         self.this_repo = str(pathlib.Path(__file__).parent.resolve().parent)
@@ -109,9 +110,11 @@ class LabelTool:
         Label(self.ctrClassPanel, text='Annotations:').grid(row=3, column=0, sticky=W + N)
         Button(self.ctrClassPanel, text='Delete Selected (z)', command=self.del_bbox).grid(row=4, column=0, sticky=W + E + N)
         Button(self.ctrClassPanel, text='Clear All (x)', command=self.clear_bbox).grid(row=4, column=1, sticky=W + E + S)
-        self.annotationsList = Listbox(self.ctrClassPanel, width=70, height=12, selectmode="SINGLE")
+        self.annotationsList = Listbox(self.ctrClassPanel, width=70, height=12, selectmode="SINGLE", activestyle="none")
         self.annotationsList.grid(row=5, column=0, columnspan=2, sticky=N + S + W)
         self.annotationsList.bind("<<ListboxSelect>>", self.on_listbox_select)
+        self.annotationsList.bind("<Up>", self.arrow_up)
+        self.annotationsList.bind("<Down>", self.arrow_down)
         self.annotationsList.bind("1", self.set_class)  # press to select class
         self.annotationsList.bind("2", self.set_class)  # press to select class
         self.annotationsList.bind("3", self.set_class)  # press to select class
@@ -126,7 +129,7 @@ class LabelTool:
         master.unbind_all("<Tab>")  # removing default Tab behavior
         master.unbind_all("<<NextWindow>>")
         master.unbind_all("<<PrevWindow>>")
-        #self.rootPanel.bind("<Tab>", self.select_next_bbox)  # press to select next box in the list
+        self.rootPanel.bind("<Tab>", self.arrow_up)  # press to select next box in the list
 
         # control panel GoTo
 
@@ -197,6 +200,7 @@ class LabelTool:
         self.annotationsList.focus_set()
 
     def load_image(self):
+        self.selectedBbox = -1
         self.tkimg = [0, 0, 0]
         # load image
         self.imgRootName = self.imageList[self.cur - 1]
@@ -224,7 +228,7 @@ class LabelTool:
             self.annotationsList.insert(END, box_string)
             self.annotationsList.itemconfig(END, {'fg': COLORS[classIndex]})
             if first:
-                self.annotationsList.activate(0)
+                self.selectedBbox = 0
             first = False
 
     def get_bbox_string(self, x1, y1, x2, y2, class_index, selected):
@@ -405,52 +409,67 @@ class LabelTool:
             idx += 1
         self.render_boxes()
 
+    def arrow_up(self, event=None):
+        self.selectedBbox -= 1
+        if self.selectedBbox < 0:
+            self.selectedBbox = self.annotationsList.size() - 1
+        self.on_listbox_select()
+
+    def arrow_down(self, event=None):
+        self.selectedBbox += 1
+        if self.selectedBbox >= self.annotationsList.size():
+            self.selectedBbox = 0
+        self.on_listbox_select()
+
     def on_listbox_select(self, event=None):
         if self.annotationsList.size() < 1:
             return
 
         selected_indices = self.annotationsList.curselection()
-        # TODO: arrows return empty indices for some reason, even though the item gets underlined which means its active
+        # arrows return empty indices for some reason, even though the item gets underlined which means its active
 
+        # Get the selected item's index
         if selected_indices:
-            # Get the selected item's index
-            idx = selected_indices[0]
+            idx = self.selectedBbox = selected_indices[0]
+        else:
+            idx = self.selectedBbox
 
-            # Retrieve the current string value from the selected item
-            selected_str = self.annotationsList.get(idx)
 
-            try:
-                # Safely evaluate the string as a Python literal expression
-                selected_dict = ast.literal_eval(selected_str)
-                selected_class = self.get_index_of_class(selected_dict['class'])
+        # Retrieve the current string value from the selected item
+        selected_str = self.annotationsList.get(idx)
 
-                # Update the dictionary to include 'selected': true
-                selected_dict['selected'] = True
+        try:
+            # Safely evaluate the string as a Python literal expression
+            selected_dict = ast.literal_eval(selected_str)
+            selected_class = self.get_index_of_class(selected_dict['class'])
 
-                # Convert the updated dictionary back to a string
-                updated_str = str(selected_dict)
+            # Update the dictionary to include 'selected': true
+            selected_dict['selected'] = True
 
-                # Set the updated string as the value of the selected item
-                self.annotationsList.delete(idx)
-                self.annotationsList.insert(idx, updated_str)
-                self.annotationsList.itemconfig(idx, {'fg': COLORS[selected_class]})
+            # Convert the updated dictionary back to a string
+            updated_str = str(selected_dict)
 
-                # For other items, set the 'selected' attribute to False
-                for i in range(self.annotationsList.size()):
-                    if i != idx:
-                        other_str = self.annotationsList.get(i)
-                        other_dict = ast.literal_eval(other_str)
-                        other_class = self.get_index_of_class(other_dict['class'])
+            # Set the updated string as the value of the selected item
+            self.annotationsList.delete(idx)
+            self.annotationsList.insert(idx, updated_str)
+            self.annotationsList.itemconfig(idx, {'fg': COLORS[selected_class]})
 
-                        if 'selected' in other_dict:
-                            other_dict['selected'] = False
+            # For other items, set the 'selected' attribute to False
+            for i in range(self.annotationsList.size()):
+                if i != idx:
+                    other_str = self.annotationsList.get(i)
+                    other_dict = ast.literal_eval(other_str)
+                    other_class = self.get_index_of_class(other_dict['class'])
 
-                        self.annotationsList.delete(i)
-                        self.annotationsList.insert(i, str(other_dict))
-                        self.annotationsList.itemconfig(i, {'fg': COLORS[other_class]})
-                self.render_boxes()
-            except (ValueError, SyntaxError) as e:
-                print("Error:", e)
+                    if 'selected' in other_dict:
+                        other_dict['selected'] = False
+
+                    self.annotationsList.delete(i)
+                    self.annotationsList.insert(i, str(other_dict))
+                    self.annotationsList.itemconfig(i, {'fg': COLORS[other_class]})
+            self.render_boxes()
+        except (ValueError, SyntaxError) as e:
+            print("Error:", e)
 
     def render_boxes(self):
         self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N + W)
