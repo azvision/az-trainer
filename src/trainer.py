@@ -7,6 +7,7 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 import os
 import glob
+
 from ultralytics import YOLO
 
 # colors for the bboxes
@@ -325,6 +326,7 @@ class LabelTool:
             self.annotationsList.insert(END, str(self.STATE))
             self.STATE = {}
 
+            self.selectedBbox = self.annotationsList.size() - 1
             self.annotationsList.focus_set()
 
     def toggle_next_bbox_after_class(self):
