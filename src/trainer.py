@@ -108,8 +108,8 @@ class LabelTool:
 
         # showing bbox info & delete bbox
         Label(self.ctrClassPanel, text='Annotations:').grid(row=3, column=0, sticky=W+N)
-        Button(self.ctrClassPanel, text='Delete Selected (z)', command=self.del_bbox).grid(row=4, column=0, sticky=W + E + N)
-        Button(self.ctrClassPanel, text='Clear All (x)', command=self.clear_bbox).grid(row=4, column=1, sticky=W + E + S)
+        Button(self.ctrClassPanel, text='Delete Selected (z)', command=self.del_bbox).grid(row=4, column=0, sticky=W+E+N)
+        Button(self.ctrClassPanel, text='Clear All (x)', command=self.clear_bbox).grid(row=4, column=1, sticky=W+E+S)
         self.annotationsList = Listbox(self.ctrClassPanel, width=70, height=12, selectmode="SINGLE")
         self.annotationsList.grid(row=5, column=0, columnspan=2, sticky=N+S+W)
         self.annotationsList.bind("<<ListboxSelect>>", self.on_listbox_select)
@@ -122,6 +122,7 @@ class LabelTool:
         self.annotationsList.bind("7", self.set_class)  # press to select class
         self.annotationsList.bind("8", self.set_class)  # press to select class
         self.annotationsList.bind("9", self.set_class)  # press to select class
+        self.annotationsList.focus_set()
 
         # control panel GoTo
 
@@ -190,6 +191,8 @@ class LabelTool:
 
         self.load_image()
 
+        self.annotationsList.focus_set()
+
     def load_image(self):
         self.tkimg = [0, 0, 0]
         # load image
@@ -212,10 +215,12 @@ class LabelTool:
         if xyxy_list is None:
             xyxy_list = self.get_predictions_from_yolo()
 
+        first = True
         for x1, y1, x2, y2, classIndex, selected in xyxy_list:
-            box_string = self.get_bbox_string(x1, y1, x2, y2, classIndex, selected)
+            box_string = self.get_bbox_string(x1, y1, x2, y2, classIndex, True if first else selected)
             self.annotationsList.insert(END, box_string)
             self.annotationsList.itemconfig(END, {'fg': COLORS[classIndex]})
+            first = False
 
     def get_bbox_string(self, x1, y1, x2, y2, class_index, selected):
         bbox_id = self.create_bbox(x1, y1, x2, y2, COLORS[class_index], selected)
@@ -290,10 +295,11 @@ class LabelTool:
         if self.STATE == {}:
             self.STATE['class'], self.STATE['x1'], self.STATE['y1'] = self.currentLabelClass, event.x, event.y
         else:
-            self.STATE['x2'], self.STATE['y2'], self.STATE['selected'] = event.x, event.y, True
-            bbox_id = self.create_bbox(self.STATE['x1'], self.STATE['y1'], self.STATE['x2'], self.STATE['y2'], selected=self.STATE['selected'])
-            self.STATE['id'] = bbox_id
+            self.STATE['x2'], self.STATE['y2'] = event.x, event.y
+            bbox_id = self.create_bbox(self.STATE['x1'], self.STATE['y1'], self.STATE['x2'], self.STATE['y2'], COLORS[self.get_index_of_class(self.STATE['class'])], True)
+            self.STATE['id'], self.STATE['selected'] = bbox_id, True  # attributes in order
 
+            # For other boxes, set the "selected" attribute to False
             idx = 0
             for item in self.annotationsList.get(0, END):
                 bbox = ast.literal_eval(item)
@@ -304,6 +310,8 @@ class LabelTool:
 
             self.annotationsList.insert(END, str(self.STATE))
             self.STATE = {}
+
+            self.annotationsList.focus_set()
 
     def create_bbox(self, x1, y1, x2, y2, color=COLORS[0], selected=False):
         rectangle_width = 2 if selected else 1
@@ -322,9 +330,7 @@ class LabelTool:
         if self.STATE != {}:
             if self.curBBoxId:
                 self.mainPanel.delete(self.curBBoxId)
-            self.curBBoxId = self.mainPanel.create_rectangle(self.STATE['x1'], self.STATE['y1'],
-                                                             event.x, event.y,
-                                                             width=2, outline=COLORS[0])
+            self.curBBoxId = self.mainPanel.create_rectangle(self.STATE['x1'], self.STATE['y1'], event.x, event.y, width=2, outline=COLORS[0])
 
     def cancel_bbox(self, event):
         if self.curBBoxId:
@@ -366,18 +372,17 @@ class LabelTool:
             self.cur = idx
             self.load_image()
 
-    def set_class(self, e):
+    def set_class(self, key):
         self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N+W)
         idx = 0
         for item in self.annotationsList.get(0, END):
             bbox = ast.literal_eval(item)
-            is_selected = bbox.get('selected', False)
-            if is_selected:
+            if bbox['selected'] is True:
                 try:
-                    target_class_index = int(e.keysym)-1
+                    target_class_index = int(key.keysym) - 1
                     target_class = self.classesList[target_class_index]
-                except (IndexError, ValueError) as e:
-                    print("Error:", e)
+                except (IndexError, ValueError) as key:
+                    print("Error:", key)
                     return
                 bbox_id = bbox.get('id', 0)
                 if bbox_id > 0:
@@ -393,7 +398,6 @@ class LabelTool:
         selected_indices = event.widget.curselection()
 
         if selected_indices:
-
             # Get the selected item's index
             idx = selected_indices[0]
 
@@ -416,7 +420,7 @@ class LabelTool:
                 event.widget.insert(idx, updated_str)
                 event.widget.itemconfig(idx, {'fg': COLORS[selected_class]})
 
-                # For other items, remove the "selected" attribute
+                # For other items, set the "selected" attribute to False
                 for i in range(event.widget.size()):
                     if i != idx:
                         other_str = event.widget.get(i)
@@ -424,10 +428,10 @@ class LabelTool:
                         other_class = self.get_index_of_class(other_dict['class'])
 
                         if "selected" in other_dict:
-                            del other_dict["selected"]
-                        updated_other_str = str(other_dict)
+                            other_dict["selected"] = False
+
                         event.widget.delete(i)
-                        event.widget.insert(i, updated_other_str)
+                        event.widget.insert(i, str(other_dict))
                         event.widget.itemconfig(i, {'fg': COLORS[other_class]})
                 self.render_boxes()
             except (ValueError, SyntaxError) as e:
