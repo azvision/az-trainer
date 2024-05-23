@@ -108,13 +108,17 @@ class LabelTool:
         self.classCandidate.grid(row=1, column=0, sticky=W + N)
         if os.path.exists(self.classCandidateFilename):
             with open(self.classCandidateFilename) as cf:
-                class_id = 1
                 for line in cf.readlines():
-                    self.classesList.append(line.strip('\n') + ' (' + str(class_id) + ')')
-                    class_id += 1
-        self.classCandidate['values'] = self.classesList
+                    self.classesList.append(line.strip('\n'))
+
+        numbered_classes_list = self.classesList.copy()
+        for class_id in range(len(numbered_classes_list)):
+            numbered_classes_list[class_id] = numbered_classes_list[class_id] + ' (' + str(class_id + 1) + ')'
+
+        self.classCandidate['values'] = numbered_classes_list
         self.classCandidate.current(0)
-        self.currentLabelClass = self.classCandidate.get()
+        self.class_on_create()
+        self.classCandidate.bind("<<ComboboxSelected>>", self.class_on_create)
 
         next_bbox_frame = Frame(self.ctrClassPanel)
         next_bbox_frame.grid(row=2, column=0, sticky=W + N)
@@ -366,7 +370,14 @@ class LabelTool:
         if self.STATE != {}:
             if self.curBBoxId:
                 self.mainPanel.delete(self.curBBoxId)
-            self.curBBoxId = self.mainPanel.create_rectangle(self.STATE['x1'], self.STATE['y1'], event.x, event.y, width=2, outline=COLORS[0])
+            self.curBBoxId = self.mainPanel.create_rectangle(self.STATE['x1'], self.STATE['y1'], event.x, event.y, width=2, outline=COLORS[self.get_index_of_class(self.currentLabelClass)])
+
+    def class_on_create(self, event=None):
+        index = self.classCandidate.current()
+        if index < 0 or index > len(self.classesList):
+            return
+
+        self.currentLabelClass = self.classesList[index]
 
     def cancel_bbox(self, event):
         if self.curBBoxId:
@@ -388,7 +399,6 @@ class LabelTool:
 
         self.on_listbox_select()
         self.render_boxes()
-
 
     def del_all_bboxes(self, event=None):
         num_elements = len(self.annotationsList.get(0, END))
@@ -463,7 +473,7 @@ class LabelTool:
             return
 
         # Get the selected item's index
-        selected_indices = self.annotationsList.curselection()   # arrows return empty indices for some reason, even though the item gets underlined which means its active
+        selected_indices = self.annotationsList.curselection()  # arrows return empty indices for some reason, even though the item gets underlined which means its active
         if selected_indices:
             idx = self.selectedBbox = selected_indices[0]
         else:
