@@ -239,7 +239,7 @@ class LabelTool:
 
     def get_bbox_string(self, x1, y1, x2, y2, class_index, selected):
         bbox_id = self.create_bbox(x1, y1, x2, y2, COLORS[class_index], selected)
-        box_string = f"{{'class':'{self.classesList[class_index]}', 'x1':{x1}, 'y1':{y1}, 'x2': {x2}, 'y2': {y2}, 'id':{bbox_id}, 'selected':{selected}  }}"
+        box_string = f"{{'class':'{self.classesList[class_index]}', 'x1':{x1}, 'y1':{y1}, 'x2': {x2}, 'y2': {y2}, 'id':{bbox_id}, 'selected':{selected}}}"
         return box_string
 
     def get_boxes_from_file(self):
@@ -328,6 +328,8 @@ class LabelTool:
 
             self.selectedBbox = self.annotationsList.size() - 1
             self.annotationsList.focus_set()
+
+            self.render_boxes()
 
     def toggle_next_bbox_after_class(self):
         self.nextBboxAfterClass = not self.nextBboxAfterClass
