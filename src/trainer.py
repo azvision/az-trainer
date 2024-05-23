@@ -1,5 +1,7 @@
 import ast
 import pathlib
+import shutil
+import zipfile
 from tkinter import END, LEFT, N, S, W, E, StringVar, Tk
 from tkinter import filedialog, Button, Canvas, Entry, Frame, Label, Listbox
 from tkinter import messagebox
@@ -44,9 +46,10 @@ class LabelTool:
         self.selectedBbox = 0
         self.nextBboxAfterClass = True
 
-        self.images_path = os.path.join('C:\\', 'azvision', 'batches')
+        self.imgPath = os.path.join('C:\\', 'azvision', 'batches')
+        self.checkedBatchesPath = os.path.join('C:\\', 'azvision', 'checked-batches')
         self.this_repo = str(pathlib.Path(__file__).parent.resolve().parent)
-        self.default_images_filepath = os.path.join(self.images_path, self.annotations_batch)
+        self.default_images_filepath = os.path.join(self.imgPath, self.annotations_batch)
 
         # initialize mouse state
         self.STATE = {}
@@ -77,9 +80,9 @@ class LabelTool:
         self.bLoad = Button(file_frame, text="Load Dir", command=self.load_dir)
         self.bLoad.pack(side=LEFT, padx=5)
 
-        # TODO: export batch
-        #self.bExport = Button(file_frame, text="Export batch", command=self.export_batch)
-        #self.bExport.pack(side=LEFT, padx=5)
+        # export batch
+        self.bExport = Button(file_frame, text="Export batch", command=self.export_batch)
+        self.bExport.pack(side=LEFT, padx=5)
 
         # image info
         image_frame = Frame(self.ctrTopPanel)
@@ -228,8 +231,17 @@ class LabelTool:
         if self.labelsDir is None:
             return
 
-        # TODO: Zip the batch directory (labels directory inside)
-        print("Exported currently loaded batch.")
+        if not os.path.exists(self.checkedBatchesPath):
+            os.makedirs(self.checkedBatchesPath, exist_ok=True)
+
+        with zipfile.ZipFile(self.imageDir + '.zip',  'w') as zip_object:
+            for folder_name, sub_folders, file_names in os.walk(self.labelsDir):
+                for filename in file_names:
+                    zip_object.write(str(os.path.join(folder_name, filename)), os.path.join('labels', filename))
+
+        shutil.move(self.imageDir + '.zip', os.path.join(self.checkedBatchesPath, os.path.basename(self.imageDir) + '.zip'))
+
+        print("Exported currently loaded batch as a zip file.")
 
         self.annotationsList.focus_set()
 
