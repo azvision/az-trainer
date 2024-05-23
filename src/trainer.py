@@ -208,6 +208,7 @@ class LabelTool:
     def load_image(self):
         self.selectedBbox = -1
         self.tkimg = [0, 0, 0]
+
         # load image
         self.imgRootName = self.imageList[self.cur - 1]
         img_file_path = os.path.join(self.imageDir, self.imgRootName + "." + self.fileNameExt)
@@ -261,6 +262,7 @@ class LabelTool:
                     results.append((x1, y1, x2, y2, class_index, False))
         else:
             return None
+
         return results
 
     def get_predictions_from_yolo(self):
@@ -273,6 +275,7 @@ class LabelTool:
                 class_index = int(box.cls.item())
                 for x1, y1, x2, y2 in box.xyxy:
                     results.append((int(x1) * ZOOM_RATIO, int(y1) * ZOOM_RATIO, int(x2) * ZOOM_RATIO, int(y2) * ZOOM_RATIO, class_index, False))
+
         return results
 
     def load_img_from_disk(self, full_file_path):
@@ -288,8 +291,7 @@ class LabelTool:
 
         annotation_file_path, img_width, img_height = self.get_annotations_metadata()
         annotations = self.annotationsList.get(0, END)
-
-        with open(annotation_file_path, 'w') as f:
+        with open(annotation_file_path, 'w') as file:
             for annotationListItem in annotations:
                 annotation = ast.literal_eval(annotationListItem)
                 class_ = self.classesList.index(annotation['class'])
@@ -297,8 +299,7 @@ class LabelTool:
                 center_y = (annotation['y1'] + annotation['y2']) / 2. / img_height
                 height = abs(annotation['x1'] - annotation['x2']) * 1. / img_width
                 width = abs(annotation['y1'] - annotation['y2']) * 1. / img_height
-
-                f.write(f'{class_} {center_x} {center_y} {height} {width}\n')
+                file.write(f'{class_} {center_x} {center_y} {height} {width}\n')
 
     def get_annotations_metadata(self):
         annotation_file_name = self.imgRootName
@@ -350,6 +351,7 @@ class LabelTool:
             if self.verticalLine:
                 self.mainPanel.delete(self.verticalLine)
             self.verticalLine = self.mainPanel.create_line(event.x, 0, event.x, self.tkimg.height(), width=2)
+
         if self.STATE != {}:
             if self.curBBoxId:
                 self.mainPanel.delete(self.curBBoxId)
@@ -449,10 +451,8 @@ class LabelTool:
         if self.annotationsList.size() < 1:
             return
 
-        selected_indices = self.annotationsList.curselection()
-        # arrows return empty indices for some reason, even though the item gets underlined which means its active
-
         # Get the selected item's index
+        selected_indices = self.annotationsList.curselection()   # arrows return empty indices for some reason, even though the item gets underlined which means its active
         if selected_indices:
             idx = self.selectedBbox = selected_indices[0]
         else:
@@ -483,13 +483,13 @@ class LabelTool:
                     other_str = self.annotationsList.get(i)
                     other_dict = ast.literal_eval(other_str)
                     other_class = self.get_index_of_class(other_dict['class'])
-
                     if 'selected' in other_dict:
                         other_dict['selected'] = False
 
                     self.annotationsList.delete(i)
                     self.annotationsList.insert(i, str(other_dict))
                     self.annotationsList.itemconfig(i, {'fg': COLORS[other_class]})
+
             self.render_boxes()
         except (ValueError, SyntaxError) as exception:
             print("Error:", exception)
