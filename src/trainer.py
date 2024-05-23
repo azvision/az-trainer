@@ -39,7 +39,7 @@ class LabelTool:
         self.currentLabelClass = ''
         self.classesList = []
         self.classCandidateFilename = 'src/class.txt'
-        self.annotations_batch = "batch-002"
+        self.annotations_batch = "batch-003"
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
         self.nextBboxAfterClass = True
@@ -59,65 +59,76 @@ class LabelTool:
 
         # ----------------- GUI stuff ---------------------
 
-        # Empty label
-        self.lblAlign = Label(self.rootPanel, text='  \n  ')
-        self.lblAlign.grid(column=0, row=0, rowspan=100, sticky=W)
-
         # Top panel stuff
         self.ctrTopPanel = Frame(self.rootPanel)
-        self.ctrTopPanel.grid(row=0, column=1, sticky=W + N)
-        Button(self.ctrTopPanel, text="Image input folder", command=self.select_src_dir).grid(row=0, column=0)
+        self.ctrTopPanel.grid(row=0, column=0, sticky=W + N, padx=5)
+
+        # input
+        input_frame = Frame(self.ctrTopPanel)
+        input_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
         # input image dir entry
+        Button(input_frame, text="Img folder", command=self.select_src_dir).pack(side=LEFT)
         self.svSourcePath = StringVar()
-        Entry(self.ctrTopPanel, textvariable=self.svSourcePath, width=70).grid(row=0, column=1, sticky=W + E, padx=5)
+        Entry(input_frame, textvariable=self.svSourcePath, width=70).pack(side=LEFT, padx=5, ipadx=5)
         self.svSourcePath.set(self.default_images_filepath)
 
-        # Button load dir
-        self.bLoad = Button(self.ctrTopPanel, text="Load Dir", command=self.load_dir)
-        self.bLoad.grid(row=0, column=3, rowspan=1, padx=2, pady=2, ipadx=5, ipady=5)
-        self.lblFilename = Label(self.ctrTopPanel, text="Current filename: <name>", justify=LEFT, anchor="w")
-        self.lblFilename.grid(row=1, column=0, columnspan=2, sticky=W)
+        # button load dir
+        self.bLoad = Button(input_frame, text="Load Dir", command=self.load_dir)
+        self.bLoad.pack(side=LEFT)
+
+        # image info
+        image_frame = Frame(self.ctrTopPanel)
+        image_frame.grid(row=1, column=0, sticky=W)
+
+        # current file info
+        self.lblFilename = Label(image_frame, text="Filename")
+        self.lblFilename.grid(row=0, column=0, sticky=W + N)
 
         # main panel for labeling
-        self.mainPanel = Canvas(self.rootPanel, cursor='tcross')
-        self.mainPanel.grid(row=1, column=1, sticky=W + N)
+        self.mainPanel = Canvas(image_frame, cursor='tcross')
+        self.mainPanel.grid(row=1, column=0, sticky=W + N)
         self.mainPanel.bind("<Button-1>", self.mouse_click)
         self.mainPanel.bind("<Motion>", self.mouse_move)
 
-        self.rootPanel.bind("<Escape>", self.cancel_bbox)  # press Espace to cancel current bbox
+        self.rootPanel.bind("<Escape>", self.cancel_bbox)  # press Escape to cancel current bbox
         self.rootPanel.bind("c", self.cancel_bbox)
         self.rootPanel.bind("a", self.prev_image)  # press 'a' to go backward
         self.rootPanel.bind("d", self.next_image)  # press 'd' to go forward
         self.rootPanel.bind("z", self.del_bbox)  # press 'z' to delete selected
-        self.rootPanel.bind("x", self.clear_bbox)  # press 'x' to clear all
+        self.rootPanel.bind("x", self.del_all_bboxes)  # press 'x' to delete all
 
         # Class panel
         self.ctrClassPanel = Frame(self.rootPanel)
-        self.ctrClassPanel.grid(row=1, column=2, sticky=W + N)
+        self.ctrClassPanel.grid(row=0, column=1, sticky=N, padx=5)
 
-        Label(self.ctrClassPanel, text='Classes:').grid(row=1, column=0, sticky=W)
+        Label(self.ctrClassPanel, text='Classes:').grid(row=0, column=0, sticky=W + N)
         self.className = StringVar()
         self.classCandidate = ttk.Combobox(self.ctrClassPanel, state='readonly', textvariable=self.className)
-        self.classCandidate.grid(row=2, column=0, sticky=W)
+        self.classCandidate.grid(row=1, column=0, sticky=W + N)
         if os.path.exists(self.classCandidateFilename):
             with open(self.classCandidateFilename) as cf:
+                class_id = 1
                 for line in cf.readlines():
-                    self.classesList.append(line.strip('\n'))
+                    self.classesList.append(line.strip('\n') + ' (' + str(class_id) + ')')
+                    class_id += 1
         self.classCandidate['values'] = self.classesList
         self.classCandidate.current(0)
         self.currentLabelClass = self.classCandidate.get()
 
-        Label(self.ctrClassPanel, text='Next box on class set:').grid(row=1, column=1, sticky=W)
-        self.bNextBboxAfterClass = Button(self.ctrClassPanel, text='ON', command=self.toggle_next_bbox_after_class)
-        self.bNextBboxAfterClass.grid(row=2, column=1, sticky=W + N)
+        next_bbox_frame = Frame(self.ctrClassPanel)
+        next_bbox_frame.grid(row=2, column=0, sticky=W + N)
+        next_bbox_label = Label(next_bbox_frame, text='Next box on set:')
+        next_bbox_label.pack(side=LEFT)
+        self.bNextBboxAfterClass = Button(next_bbox_frame, text='ON', command=self.toggle_next_bbox_after_class)
+        self.bNextBboxAfterClass.pack(side=LEFT)
 
         # showing bbox info & delete bbox
-        Label(self.ctrClassPanel, text='Annotations:').grid(row=3, column=0, sticky=W + N)
-        Button(self.ctrClassPanel, text='Delete Selected (z)', command=self.del_bbox).grid(row=4, column=0, sticky=W + E + N)
-        Button(self.ctrClassPanel, text='Clear All (x)', command=self.clear_bbox).grid(row=4, column=1, sticky=W + E + S)
+        Label(self.ctrClassPanel, text='Annotations:').grid(row=4, column=0, sticky=W + N)
+        Button(self.ctrClassPanel, text='Delete Selected (z)', command=self.del_bbox).grid(row=5, column=0, sticky=W + N + S)
+        Button(self.ctrClassPanel, text='Delete All (x)', command=self.del_all_bboxes).grid(row=6, column=0, sticky=W + N + S)
         self.annotationsList = Listbox(self.ctrClassPanel, width=70, height=12, selectmode="SINGLE", activestyle="none")
-        self.annotationsList.grid(row=5, column=0, columnspan=2, sticky=N + S + W)
+        self.annotationsList.grid(row=7, column=0, columnspan=2, sticky=N + S + W)
         self.annotationsList.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.annotationsList.bind("<Up>", self.arrow_up)
         self.annotationsList.bind("<Down>", self.arrow_down)
@@ -139,10 +150,10 @@ class LabelTool:
 
         # control panel GoTo
 
-        Label(self.ctrClassPanel, text='  \n  ').grid(row=7, column=0, columnspan=2)
+        Label(self.ctrClassPanel, text='  \n  ').grid(row=9, column=0, columnspan=1)
 
         self.ctrGoToPanel = Frame(self.ctrClassPanel)
-        self.ctrGoToPanel.grid(row=8, column=0, columnspan=2, sticky=W + E)
+        self.ctrGoToPanel.grid(row=10, column=0, columnspan=1, sticky=W + E)
         self.tmpLabel = Label(self.ctrGoToPanel, text="Go to Image No.")
         self.tmpLabel.pack(side=LEFT, padx=5)
         self.idxEntry = Entry(self.ctrGoToPanel, width=5)
@@ -150,21 +161,21 @@ class LabelTool:
         self.goBtn = Button(self.ctrGoToPanel, text='Go', command=self.goto_image)
         self.goBtn.pack(side=LEFT)
 
-        Label(self.ctrClassPanel, text='  \n  ').grid(row=9, column=0, columnspan=2)
+        Label(self.ctrClassPanel, text='  \n  ').grid(row=11, column=0, columnspan=1)
 
         # Navigation control panel
         self.ctrNavigatePanel = Frame(self.ctrClassPanel)
-        self.ctrNavigatePanel.grid(row=10, column=0, columnspan=2, sticky=W + E)
+        self.ctrNavigatePanel.grid(row=12, column=0, sticky=W + N)
         self.prevBtn = Button(self.ctrNavigatePanel, text='<< Prev (a)', width=10, command=self.prev_image)
-        self.prevBtn.pack(side=LEFT, padx=5, pady=3)
-        self.nextBtn = Button(self.ctrNavigatePanel, text='(d) Next >>', width=10, command=self.next_image)
-        self.nextBtn.pack(side=LEFT, padx=5, pady=3)
+        self.prevBtn.pack(padx=5, pady=3)
         self.progLabel = Label(self.ctrNavigatePanel, text="Progress:     /    ")
-        self.progLabel.pack(side=LEFT, padx=5)
+        self.progLabel.pack(padx=5)
+        self.nextBtn = Button(self.ctrNavigatePanel, text='(d) Next >>', width=10, command=self.next_image)
+        self.nextBtn.pack(padx=5, pady=3)
 
         # display mouse position
-        self.disp = Label(self.ctrNavigatePanel, text='')
-        self.disp.pack(side=RIGHT)
+        self.disp = Label(self.ctrNavigatePanel, text='Mouse location')
+        self.disp.pack(pady=3)
         self.rootPanel.columnconfigure(5, weight=1)
         self.rootPanel.rowconfigure(6, weight=1)
 
@@ -222,7 +233,7 @@ class LabelTool:
         self.progLabel.config(text=f"{self.cur}/{self.total}")
         self.lblFilename.config(text=f"Filename: {self.imgRootName}")
 
-        self.clear_bbox()
+        self.del_all_bboxes()
 
         # load labels
         xyxy_list = self.get_boxes_from_file()
@@ -379,7 +390,7 @@ class LabelTool:
         self.render_boxes()
 
 
-    def clear_bbox(self, event=None):
+    def del_all_bboxes(self, event=None):
         num_elements = len(self.annotationsList.get(0, END))
         self.annotationsList.delete(0, num_elements - 1)
         self.selectedBbox = 0
