@@ -63,19 +63,23 @@ class LabelTool:
         self.ctrTopPanel = Frame(self.rootPanel)
         self.ctrTopPanel.grid(row=0, column=0, sticky=W + N, padx=5)
 
-        # input
-        input_frame = Frame(self.ctrTopPanel)
-        input_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
+        # file
+        file_frame = Frame(self.ctrTopPanel)
+        file_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
-        # input image dir entry
-        Button(input_frame, text="Img folder", command=self.select_src_dir).pack(side=LEFT)
+        # file image dir entry
+        Button(file_frame, text="Img folder", command=self.select_src_dir).pack(side=LEFT)
         self.svSourcePath = StringVar()
-        Entry(input_frame, textvariable=self.svSourcePath, width=70).pack(side=LEFT, padx=5, ipadx=5)
+        Entry(file_frame, textvariable=self.svSourcePath, width=70).pack(side=LEFT, padx=5)
         self.svSourcePath.set(self.default_images_filepath)
 
         # button load dir
-        self.bLoad = Button(input_frame, text="Load Dir", command=self.load_dir)
-        self.bLoad.pack(side=LEFT)
+        self.bLoad = Button(file_frame, text="Load Dir", command=self.load_dir)
+        self.bLoad.pack(side=LEFT, padx=5)
+
+        # TODO: export batch
+        #self.bExport = Button(file_frame, text="Export batch", command=self.export_batch)
+        #self.bExport.pack(side=LEFT, padx=5)
 
         # image info
         image_frame = Frame(self.ctrTopPanel)
@@ -217,6 +221,15 @@ class LabelTool:
         self.model = YOLO(os.path.join(self.this_repo, "models", "best.pt"))
 
         self.load_image()
+
+        self.annotationsList.focus_set()
+
+    def export_batch(self):
+        if self.labelsDir is None:
+            return
+
+        # TODO: Zip the batch directory (labels directory inside)
+        print("Exported currently loaded batch.")
 
         self.annotationsList.focus_set()
 
