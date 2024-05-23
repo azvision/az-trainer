@@ -1,6 +1,6 @@
 import ast
 import pathlib
-from tkinter import END, LEFT, N, RIGHT, S, W, E, StringVar, Tk
+from tkinter import END, LEFT, N, S, W, E, StringVar, Tk
 from tkinter import filedialog, Button, Canvas, Entry, Frame, Label, Listbox
 from tkinter import messagebox
 from tkinter import ttk
