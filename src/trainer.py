@@ -30,7 +30,8 @@ class LabelTool:
         self.rootPanel.resizable(width=False, height=False)
 
         # initialize global state
-        self.configFile = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.yml')
+        self.baseDir = os.path.dirname(os.path.dirname(__file__))
+        self.configFile = os.path.join(self.baseDir, 'config', 'config.yml')
         if os.path.exists(self.configFile):
             with open(self.configFile, 'r') as file:
                 config = yaml.safe_load(file)
@@ -52,7 +53,7 @@ class LabelTool:
         self.currentLabelClass = ''
         self.classesList = []
 
-        self.classCandidateFile = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'classes.txt')
+        self.classCandidateFile = os.path.join(baseDir, 'data', 'classes.txt')
         self.annotations_batch = "batch-003"
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
