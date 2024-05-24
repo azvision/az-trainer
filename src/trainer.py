@@ -31,10 +31,13 @@ class LabelTool:
 
         # initialize global state
         self.configFile = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.yml')
-        if not os.path.exists(self.configFile):
-            with open(self.configFile, "w") as file:
-                file.write("")
-            file.close()
+        if os.path.exists(self.configFile):
+            with open(self.configFile, 'r') as file:
+                config = yaml.safe_load(file)
+                self.nextBboxAfterClass = config['next_box_after_class_set']
+                file.close()
+        else:
+            self.nextBboxAfterClass = True
 
         self.model = None
         self.imageDir = ''
@@ -53,16 +56,6 @@ class LabelTool:
         self.annotations_batch = "batch-003"
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
-
-        with open(self.configFile, 'r') as file:
-            config = yaml.safe_load(file)
-
-        file.close()
-
-        try:
-            self.nextBboxAfterClass = config['next_box_after_class_set']
-        except:
-            self.nextBboxAfterClass = True
 
         self.imgPath = os.path.join('C:\\', 'azvision', 'batches')
         self.checkedBatchesPath = os.path.join('C:\\', 'azvision', 'checked-batches')
