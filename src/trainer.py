@@ -3,7 +3,7 @@ import pathlib
 import shutil
 import zipfile
 from tkinter import END, LEFT, N, S, W, E, StringVar, Tk
-from tkinter import filedialog, Button, Canvas, Entry, Frame, Label, Listbox
+from tkinter import filedialog, Button, Canvas, Entry, Frame, Label, Listbox, Toplevel
 from tkinter import messagebox
 from tkinter import ttk
 
@@ -246,14 +246,26 @@ class LabelTool:
         if not os.path.exists(self.checkedBatchesPath):
             os.makedirs(self.checkedBatchesPath, exist_ok=True)
 
-        with zipfile.ZipFile(self.imageDir + '.zip',  'w') as zip_object:
+        zip_file = self.imageDir + '.zip'
+
+        with zipfile.ZipFile(zip_file,  'w') as zip_object:
             for folder_name, sub_folders, file_names in os.walk(self.labelsDir):
                 for filename in file_names:
                     zip_object.write(str(os.path.join(folder_name, filename)), os.path.join('labels', filename))
 
-        shutil.move(self.imageDir + '.zip', os.path.join(self.checkedBatchesPath, os.path.basename(self.imageDir) + '.zip'))
+        popup = Toplevel(root)
+        width = 350
+        height = 75
+        x = (root.winfo_screenwidth() / 2) - (width / 2)
+        y = (root.winfo_screenheight() / 2) - (height / 2)
+        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
+        popup.title("Batch Exported")
+        Label(popup, text="Batch exported as: " + zip_file).pack(pady=5)
+        Button(popup, text="OK", command=popup.destroy).pack(pady=5)
+        # TODO: Destroy on enter key
+        popup.focus_set()
 
-        print("Exported currently loaded batch as a zip file.")
+        print("Exported currently loaded batch as a zip file: " + zip_file)
 
         self.annotationsList.focus_set()
 
@@ -472,6 +484,8 @@ class LabelTool:
             self.save_image()
             self.cur = idx
             self.load_image()
+
+        self.annotationsList.focus_set()
 
     def set_class(self, key):
         self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N + W)
