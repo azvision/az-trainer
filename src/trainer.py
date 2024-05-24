@@ -53,7 +53,7 @@ class LabelTool:
         self.currentLabelClass = ''
         self.classesList = []
 
-        self.classCandidateFile = os.path.join(baseDir, 'data', 'classes.txt')
+        self.classCandidateFile = os.path.join(self.baseDir, 'data', 'classes.txt')
         self.annotations_batch = "batch-003"
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
