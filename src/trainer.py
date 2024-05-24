@@ -53,7 +53,10 @@ class LabelTool:
 
         file.close()
 
-        self.nextBboxAfterClass = config['next_box_after_class_set']
+        try:
+            self.nextBboxAfterClass = config['next_box_after_class_set']
+        except:
+            self.nextBboxAfterClass = True
 
         self.imgPath = os.path.join('C:\\', 'azvision', 'batches')
         self.checkedBatchesPath = os.path.join('C:\\', 'azvision', 'checked-batches')
