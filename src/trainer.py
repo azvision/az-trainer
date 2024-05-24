@@ -33,7 +33,7 @@ class LabelTool:
         self.configFile = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.yml')
         if not os.path.exists(self.configFile):
             with open(self.configFile, "w") as file:
-                file.write("Your text goes here")
+                file.write("")
             file.close()
 
         self.model = None
