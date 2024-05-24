@@ -58,8 +58,9 @@ class LabelTool:
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
 
-        self.imgPath = os.path.join('C:\\', 'azvision', 'batches')
-        self.checkedBatchesPath = os.path.join('C:\\', 'azvision', 'checked-batches')
+        self.azDir = os.path.join('C:\\', 'azvision')
+        self.imgPath = os.path.join(self.azDir, 'batches')
+        self.checkedBatchesPath = os.path.join(self.azDir, 'checked-batches')
         self.this_repo = str(pathlib.Path(__file__).parent.resolve().parent)
         self.default_images_filepath = os.path.join(self.imgPath, self.annotations_batch)
 
