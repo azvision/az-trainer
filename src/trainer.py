@@ -30,7 +30,12 @@ class LabelTool:
         self.rootPanel.resizable(width=False, height=False)
 
         # initialize global state
-        self.configFilename = os.path.join('C:\\', 'azvision', 'trainer', 'config', 'config.yml')
+        self.configFile = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.yml')
+        if not os.path.exists(self.configFile):
+            with open(self.configFile, "w") as file:
+                file.write("Your text goes here")
+            file.close()
+
         self.model = None
         self.imageDir = ''
         self.imageList = []
@@ -43,12 +48,13 @@ class LabelTool:
         self.tkimg = None
         self.currentLabelClass = ''
         self.classesList = []
-        self.classCandidateFilename = os.path.join('C:\\', 'azvision', 'trainer', 'data', 'classes.txt')
+
+        self.classCandidateFile = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'classes.txt')
         self.annotations_batch = "batch-003"
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
 
-        with open(self.configFilename, 'r') as file:
+        with open(self.configFile, 'r') as file:
             config = yaml.safe_load(file)
 
         file.close()
@@ -127,8 +133,8 @@ class LabelTool:
         self.className = StringVar()
         self.classCandidate = ttk.Combobox(self.ctrClassPanel, state='readonly', textvariable=self.className)
         self.classCandidate.grid(row=1, column=0, sticky=W + N)
-        if os.path.exists(self.classCandidateFilename):
-            with open(self.classCandidateFilename) as cf:
+        if os.path.exists(self.classCandidateFile):
+            with open(self.classCandidateFile) as cf:
                 for line in cf.readlines():
                     self.classesList.append(line.strip('\n'))
 
@@ -291,7 +297,7 @@ class LabelTool:
 
     def get_bbox_string(self, x1, y1, x2, y2, class_index, selected):
         bbox_id = self.create_bbox(x1, y1, x2, y2, COLORS[class_index], selected)
-        box_string = f"{{'class':'{self.classesList[class_index]}', 'x1':{x1}, 'y1':{y1}, 'x2': {x2}, 'y2': {y2}, 'id':{bbox_id}, 'selected':{selected}}}"
+        box_string = f"{{'class': '{self.classesList[class_index]}', 'x1': {x1}, 'y1': {y1}, 'x2': {x2}, 'y2': {y2}, 'id': {bbox_id}, 'selected': {selected}}}"
         return box_string
 
     def get_boxes_from_file(self):
@@ -387,7 +393,7 @@ class LabelTool:
         self.nextBboxAfterClass = not self.nextBboxAfterClass
         new_text = "ON" if self.nextBboxAfterClass else "OFF"
         self.bNextBboxAfterClass.config(text=new_text)
-        with open(self.configFilename, 'w') as file:
+        with open(self.configFile, 'w') as file:
             yaml.dump(dict(next_box_after_class_set=self.nextBboxAfterClass), file)
 
         file.close()
