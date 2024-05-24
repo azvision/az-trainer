@@ -6,6 +6,8 @@ from tkinter import END, LEFT, N, S, W, E, StringVar, Tk
 from tkinter import filedialog, Button, Canvas, Entry, Frame, Label, Listbox
 from tkinter import messagebox
 from tkinter import ttk
+
+import yaml
 from PIL import Image, ImageTk
 import os
 import glob
@@ -28,6 +30,7 @@ class LabelTool:
         self.rootPanel.resizable(width=False, height=False)
 
         # initialize global state
+        self.configFilename = os.path.join('C:\\', 'azvision', 'trainer', 'config', 'config.yml')
         self.model = None
         self.imageDir = ''
         self.imageList = []
@@ -40,11 +43,17 @@ class LabelTool:
         self.tkimg = None
         self.currentLabelClass = ''
         self.classesList = []
-        self.classCandidateFilename = 'src/class.txt'
+        self.classCandidateFilename = os.path.join('C:\\', 'azvision', 'trainer', 'data', 'classes.txt')
         self.annotations_batch = "batch-003"
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
-        self.nextBboxAfterClass = True
+
+        with open(self.configFilename, 'r') as file:
+            config = yaml.safe_load(file)
+
+        file.close()
+
+        self.nextBboxAfterClass = config['next_box_after_class_set']
 
         self.imgPath = os.path.join('C:\\', 'azvision', 'batches')
         self.checkedBatchesPath = os.path.join('C:\\', 'azvision', 'checked-batches')
@@ -101,7 +110,9 @@ class LabelTool:
         self.rootPanel.bind("<Escape>", self.cancel_bbox)  # press Escape to cancel current bbox
         self.rootPanel.bind("c", self.cancel_bbox)
         self.rootPanel.bind("a", self.prev_image)  # press 'a' to go backward
+        self.rootPanel.bind("<Left>", self.prev_image)  # press '<-' to go backward
         self.rootPanel.bind("d", self.next_image)  # press 'd' to go forward
+        self.rootPanel.bind("<Right>", self.next_image)  # press '->' to go forward
         self.rootPanel.bind("z", self.del_bbox)  # press 'z' to delete selected
         self.rootPanel.bind("x", self.del_all_bboxes)  # press 'x' to delete all
 
@@ -131,7 +142,8 @@ class LabelTool:
         next_bbox_frame.grid(row=2, column=0, sticky=W + N)
         next_bbox_label = Label(next_bbox_frame, text='Next box on set:')
         next_bbox_label.pack(side=LEFT)
-        self.bNextBboxAfterClass = Button(next_bbox_frame, text='ON', command=self.toggle_next_bbox_after_class)
+        next_bbox_text = 'ON' if self.nextBboxAfterClass else 'OFF'
+        self.bNextBboxAfterClass = Button(next_bbox_frame, text=next_bbox_text, command=self.toggle_next_bbox_after_class)
         self.bNextBboxAfterClass.pack(side=LEFT)
 
         # showing bbox info & delete bbox
@@ -161,18 +173,14 @@ class LabelTool:
 
         # control panel GoTo
 
-        Label(self.ctrClassPanel, text='  \n  ').grid(row=9, column=0, columnspan=1)
-
         self.ctrGoToPanel = Frame(self.ctrClassPanel)
-        self.ctrGoToPanel.grid(row=10, column=0, columnspan=1, sticky=W + E)
+        self.ctrGoToPanel.grid(row=10, column=0, columnspan=1, pady=10, sticky=W + E)
         self.tmpLabel = Label(self.ctrGoToPanel, text="Go to Image No.")
         self.tmpLabel.pack(side=LEFT, padx=5)
         self.idxEntry = Entry(self.ctrGoToPanel, width=5)
         self.idxEntry.pack(side=LEFT)
         self.goBtn = Button(self.ctrGoToPanel, text='Go', command=self.goto_image)
         self.goBtn.pack(side=LEFT)
-
-        Label(self.ctrClassPanel, text='  \n  ').grid(row=11, column=0, columnspan=1)
 
         # Navigation control panel
         self.ctrNavigatePanel = Frame(self.ctrClassPanel)
@@ -376,6 +384,10 @@ class LabelTool:
         self.nextBboxAfterClass = not self.nextBboxAfterClass
         new_text = "ON" if self.nextBboxAfterClass else "OFF"
         self.bNextBboxAfterClass.config(text=new_text)
+        with open(self.configFilename, 'w') as file:
+            yaml.dump(dict(next_box_after_class_set=self.nextBboxAfterClass), file)
+
+        file.close()
 
     def create_bbox(self, x1, y1, x2, y2, color=COLORS[0], selected=False):
         rectangle_width = 2 if selected else 1
@@ -404,7 +416,7 @@ class LabelTool:
 
         self.currentLabelClass = self.classesList[index]
 
-    def cancel_bbox(self, event):
+    def cancel_bbox(self, event=None):
         if self.curBBoxId:
             self.mainPanel.delete(self.curBBoxId)
         self.STATE = {}
@@ -448,6 +460,7 @@ class LabelTool:
         if self.cur < self.total:
             self.cur += 1
             self.load_image()
+            self.cancel_bbox()
 
     def goto_image(self):
         idx = int(self.idxEntry.get())
