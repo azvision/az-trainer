@@ -1,6 +1,5 @@
 import ast
 import pathlib
-import shutil
 import zipfile
 from tkinter import END, LEFT, N, S, W, E, StringVar, Tk
 from tkinter import filedialog, Button, Canvas, Entry, Frame, Label, Listbox, Toplevel
