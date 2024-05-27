@@ -153,7 +153,7 @@ class LabelTool:
         Label(self.ctrClassPanel, text='Annotations:').grid(row=4, column=0, sticky=W + N)
         Button(self.ctrClassPanel, text='Delete Selected (z)', command=self.del_bbox).grid(row=5, column=0, sticky=W + N + S)
         Button(self.ctrClassPanel, text='Delete All (x)', command=self.del_all_bboxes).grid(row=6, column=0, sticky=W + N + S)
-        self.annotationsList = Listbox(self.ctrClassPanel, width=70, height=12, selectmode="SINGLE", activestyle="none")
+        self.annotationsList = Listbox(self.ctrClassPanel, width=80, height=12, selectmode="SINGLE", activestyle="none")
         self.annotationsList.grid(row=7, column=0, columnspan=2, sticky=N + S + W)
         self.annotationsList.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.annotationsList.bind("<Up>", self.arrow_up)
