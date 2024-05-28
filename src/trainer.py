@@ -1,9 +1,12 @@
 import ast
 import pathlib
+import zipfile
 from tkinter import END, LEFT, N, S, W, E, StringVar, Tk
-from tkinter import filedialog, Button, Canvas, Entry, Frame, Label, Listbox
+from tkinter import filedialog, Button, Canvas, Entry, Frame, Label, Listbox, Toplevel
 from tkinter import messagebox
 from tkinter import ttk
+
+import yaml
 from PIL import Image, ImageTk
 import os
 import glob
@@ -26,6 +29,16 @@ class LabelTool:
         self.rootPanel.resizable(width=False, height=False)
 
         # initialize global state
+        self.baseDir = os.path.dirname(os.path.dirname(__file__))
+        self.configFile = os.path.join(self.baseDir, 'config', 'config.yml')
+        if os.path.exists(self.configFile):
+            with open(self.configFile, 'r') as file:
+                config = yaml.safe_load(file)
+                self.nextBboxAfterClass = config['next_box_after_class_set']
+                file.close()
+        else:
+            self.nextBboxAfterClass = True
+
         self.model = None
         self.imageDir = ''
         self.imageList = []
@@ -38,15 +51,17 @@ class LabelTool:
         self.tkimg = None
         self.currentLabelClass = ''
         self.classesList = []
-        self.classCandidateFilename = 'src/class.txt'
+
+        self.classCandidateFile = os.path.join(self.baseDir, 'data', 'classes.txt')
         self.annotations_batch = "batch-003"
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
-        self.nextBboxAfterClass = True
 
-        self.images_path = os.path.join('C:\\', 'azvision', 'batches')
+        self.azDir = os.path.join('C:\\', 'azvision')
+        self.imgPath = os.path.join(self.azDir, 'batches')
+        self.checkedBatchesPath = os.path.join(self.azDir, 'checked-batches')
         self.this_repo = str(pathlib.Path(__file__).parent.resolve().parent)
-        self.default_images_filepath = os.path.join(self.images_path, self.annotations_batch)
+        self.default_images_filepath = os.path.join(self.imgPath, self.annotations_batch)
 
         # initialize mouse state
         self.STATE = {}
@@ -63,19 +78,23 @@ class LabelTool:
         self.ctrTopPanel = Frame(self.rootPanel)
         self.ctrTopPanel.grid(row=0, column=0, sticky=W + N, padx=5)
 
-        # input
-        input_frame = Frame(self.ctrTopPanel)
-        input_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
+        # file
+        file_frame = Frame(self.ctrTopPanel)
+        file_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
-        # input image dir entry
-        Button(input_frame, text="Img folder", command=self.select_src_dir).pack(side=LEFT)
+        # file image dir entry
+        Button(file_frame, text="Img folder", command=self.select_src_dir).pack(side=LEFT)
         self.svSourcePath = StringVar()
-        Entry(input_frame, textvariable=self.svSourcePath, width=70).pack(side=LEFT, padx=5, ipadx=5)
+        Entry(file_frame, textvariable=self.svSourcePath, width=70).pack(side=LEFT, padx=5)
         self.svSourcePath.set(self.default_images_filepath)
 
         # button load dir
-        self.bLoad = Button(input_frame, text="Load Dir", command=self.load_dir)
-        self.bLoad.pack(side=LEFT)
+        self.bLoad = Button(file_frame, text="Load Dir", command=self.load_dir)
+        self.bLoad.pack(side=LEFT, padx=5)
+
+        # export batch
+        self.bExport = Button(file_frame, text="Export batch", command=self.export_batch)
+        self.bExport.pack(side=LEFT, padx=5)
 
         # image info
         image_frame = Frame(self.ctrTopPanel)
@@ -94,7 +113,9 @@ class LabelTool:
         self.rootPanel.bind("<Escape>", self.cancel_bbox)  # press Escape to cancel current bbox
         self.rootPanel.bind("c", self.cancel_bbox)
         self.rootPanel.bind("a", self.prev_image)  # press 'a' to go backward
+        self.rootPanel.bind("<Left>", self.prev_image)  # press '<-' to go backward
         self.rootPanel.bind("d", self.next_image)  # press 'd' to go forward
+        self.rootPanel.bind("<Right>", self.next_image)  # press '->' to go forward
         self.rootPanel.bind("z", self.del_bbox)  # press 'z' to delete selected
         self.rootPanel.bind("x", self.del_all_bboxes)  # press 'x' to delete all
 
@@ -106,8 +127,8 @@ class LabelTool:
         self.className = StringVar()
         self.classCandidate = ttk.Combobox(self.ctrClassPanel, state='readonly', textvariable=self.className)
         self.classCandidate.grid(row=1, column=0, sticky=W + N)
-        if os.path.exists(self.classCandidateFilename):
-            with open(self.classCandidateFilename) as cf:
+        if os.path.exists(self.classCandidateFile):
+            with open(self.classCandidateFile) as cf:
                 for line in cf.readlines():
                     self.classesList.append(line.strip('\n'))
 
@@ -124,14 +145,15 @@ class LabelTool:
         next_bbox_frame.grid(row=2, column=0, sticky=W + N)
         next_bbox_label = Label(next_bbox_frame, text='Next box on set:')
         next_bbox_label.pack(side=LEFT)
-        self.bNextBboxAfterClass = Button(next_bbox_frame, text='ON', command=self.toggle_next_bbox_after_class)
+        next_bbox_text = 'ON' if self.nextBboxAfterClass else 'OFF'
+        self.bNextBboxAfterClass = Button(next_bbox_frame, text=next_bbox_text, command=self.toggle_next_bbox_after_class)
         self.bNextBboxAfterClass.pack(side=LEFT)
 
         # showing bbox info & delete bbox
         Label(self.ctrClassPanel, text='Annotations:').grid(row=4, column=0, sticky=W + N)
         Button(self.ctrClassPanel, text='Delete Selected (z)', command=self.del_bbox).grid(row=5, column=0, sticky=W + N + S)
         Button(self.ctrClassPanel, text='Delete All (x)', command=self.del_all_bboxes).grid(row=6, column=0, sticky=W + N + S)
-        self.annotationsList = Listbox(self.ctrClassPanel, width=70, height=12, selectmode="SINGLE", activestyle="none")
+        self.annotationsList = Listbox(self.ctrClassPanel, width=80, height=12, selectmode="SINGLE", activestyle="none")
         self.annotationsList.grid(row=7, column=0, columnspan=2, sticky=N + S + W)
         self.annotationsList.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.annotationsList.bind("<Up>", self.arrow_up)
@@ -154,18 +176,14 @@ class LabelTool:
 
         # control panel GoTo
 
-        Label(self.ctrClassPanel, text='  \n  ').grid(row=9, column=0, columnspan=1)
-
         self.ctrGoToPanel = Frame(self.ctrClassPanel)
-        self.ctrGoToPanel.grid(row=10, column=0, columnspan=1, sticky=W + E)
+        self.ctrGoToPanel.grid(row=10, column=0, columnspan=1, pady=10, sticky=W + E)
         self.tmpLabel = Label(self.ctrGoToPanel, text="Go to Image No.")
         self.tmpLabel.pack(side=LEFT, padx=5)
         self.idxEntry = Entry(self.ctrGoToPanel, width=5)
         self.idxEntry.pack(side=LEFT)
         self.goBtn = Button(self.ctrGoToPanel, text='Go', command=self.goto_image)
         self.goBtn.pack(side=LEFT)
-
-        Label(self.ctrClassPanel, text='  \n  ').grid(row=11, column=0, columnspan=1)
 
         # Navigation control panel
         self.ctrNavigatePanel = Frame(self.ctrClassPanel)
@@ -220,6 +238,36 @@ class LabelTool:
 
         self.annotationsList.focus_set()
 
+    def export_batch(self):
+        if self.labelsDir is None:
+            return
+
+        if not os.path.exists(self.checkedBatchesPath):
+            os.makedirs(self.checkedBatchesPath, exist_ok=True)
+
+        zip_file = self.imageDir + '.zip'
+
+        with zipfile.ZipFile(zip_file,  'w') as zip_object:
+            for folder_name, sub_folders, file_names in os.walk(self.labelsDir):
+                for filename in file_names:
+                    zip_object.write(str(os.path.join(folder_name, filename)), os.path.join('labels', filename))
+
+        popup = Toplevel(root)
+        width = 350
+        height = 75
+        x = (root.winfo_screenwidth() / 2) - (width / 2)
+        y = (root.winfo_screenheight() / 2) - (height / 2)
+        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
+        popup.title("Batch Exported")
+        Label(popup, text="Batch exported as: " + zip_file).pack(pady=5)
+        Button(popup, text="OK", command=popup.destroy).pack(pady=5)
+        # TODO: Destroy on enter key
+        popup.focus_set()
+
+        print("Exported currently loaded batch as a zip file: " + zip_file)
+
+        self.annotationsList.focus_set()
+
     def load_image(self):
         self.selectedBbox = -1
         self.tkimg = [0, 0, 0]
@@ -255,7 +303,7 @@ class LabelTool:
 
     def get_bbox_string(self, x1, y1, x2, y2, class_index, selected):
         bbox_id = self.create_bbox(x1, y1, x2, y2, COLORS[class_index], selected)
-        box_string = f"{{'class':'{self.classesList[class_index]}', 'x1':{x1}, 'y1':{y1}, 'x2': {x2}, 'y2': {y2}, 'id':{bbox_id}, 'selected':{selected}}}"
+        box_string = f"{{'class': '{self.classesList[class_index]}', 'x1': {x1}, 'y1': {y1}, 'x2': {x2}, 'y2': {y2}, 'id': {bbox_id}, 'selected': {selected}}}"
         return box_string
 
     def get_boxes_from_file(self):
@@ -351,6 +399,10 @@ class LabelTool:
         self.nextBboxAfterClass = not self.nextBboxAfterClass
         new_text = "ON" if self.nextBboxAfterClass else "OFF"
         self.bNextBboxAfterClass.config(text=new_text)
+        with open(self.configFile, 'w') as file:
+            yaml.dump(dict(next_box_after_class_set=self.nextBboxAfterClass), file)
+
+        file.close()
 
     def create_bbox(self, x1, y1, x2, y2, color=COLORS[0], selected=False):
         rectangle_width = 2 if selected else 1
@@ -379,7 +431,7 @@ class LabelTool:
 
         self.currentLabelClass = self.classesList[index]
 
-    def cancel_bbox(self, event):
+    def cancel_bbox(self, event=None):
         if self.curBBoxId:
             self.mainPanel.delete(self.curBBoxId)
         self.STATE = {}
@@ -423,6 +475,7 @@ class LabelTool:
         if self.cur < self.total:
             self.cur += 1
             self.load_image()
+            self.cancel_bbox()
 
     def goto_image(self):
         idx = int(self.idxEntry.get())
@@ -430,6 +483,8 @@ class LabelTool:
             self.save_image()
             self.cur = idx
             self.load_image()
+
+        self.annotationsList.focus_set()
 
     def set_class(self, key):
         self.mainPanel.create_image(0, 0, image=self.tkimg, anchor=N + W)
