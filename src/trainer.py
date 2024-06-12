@@ -39,6 +39,7 @@ class LabelTool:
         else:
             self.nextBboxAfterClass = True
 
+        self.code = StringVar()
         self.model = None
         self.imageDir = ''
         self.imageList = []
@@ -46,6 +47,7 @@ class LabelTool:
         self.total = 0
         self.imgRootName = None
         self.imageName = ''
+        self.batchList = []
         self.labelsDir = None
         self.labelFileName = ''
         self.tkimg = None
@@ -78,23 +80,38 @@ class LabelTool:
         self.ctrTopPanel = Frame(self.rootPanel)
         self.ctrTopPanel.grid(row=0, column=0, sticky=W + N, padx=5)
 
-        # file
-        file_frame = Frame(self.ctrTopPanel)
-        file_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
+        # batch
+        batch_frame = Frame(self.ctrTopPanel)
+        batch_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
-        # file image dir entry
-        Button(file_frame, text="Img folder", command=self.select_src_dir).pack(side=LEFT)
-        self.svSourcePath = StringVar()
-        Entry(file_frame, textvariable=self.svSourcePath, width=70).pack(side=LEFT, padx=5)
-        self.svSourcePath.set(self.default_images_filepath)
+        Button(batch_frame, text="Set code", command=self.set_code).pack(side=LEFT)
 
-        # button load dir
-        self.bLoad = Button(file_frame, text="Load Dir", command=self.load_dir)
-        self.bLoad.pack(side=LEFT, padx=5)
+        self.batchList = ttk.Combobox(batch_frame, state='readonly')
+        self.batchList.pack(side=LEFT, padx=5)
+        self.batchList['values'] = []
+        self.batchList.bind("<<ComboboxSelected>>", self.load_batch)
 
-        # export batch
-        self.bExport = Button(file_frame, text="Export batch", command=self.export_batch)
-        self.bExport.pack(side=LEFT, padx=5)
+        Button(batch_frame, text="Reload model", command=self.load_model).pack(side=LEFT, padx=5)
+
+        Button(batch_frame, text="Reload batches", command=self.load_batches).pack(side=LEFT, padx=5)
+
+        Button(batch_frame, text="Upload labels", command=self.upload_labels).pack(side=LEFT, padx=5)
+
+        #         self.classCandidate = ttk.Combobox(self.ctrClassPanel, state='readonly', textvariable=self.className)
+        #         self.classCandidate.grid(row=1, column=0, sticky=W + N)
+        #         if os.path.exists(self.classCandidateFile):
+        #             with open(self.classCandidateFile) as cf:
+        #                 for line in cf.readlines():
+        #                     self.classesList.append(line.strip('\n'))
+        #
+        #         numbered_classes_list = self.classesList.copy()
+        #         for class_id in range(len(numbered_classes_list)):
+        #             numbered_classes_list[class_id] = numbered_classes_list[class_id] + ' (' + str(class_id + 1) + ')'
+        #
+        #         self.classCandidate['values'] = numbered_classes_list
+        #         self.classCandidate.current(0)
+        #         self.class_on_create()
+        #         self.classCandidate.bind("<<ComboboxSelected>>", self.class_on_create)
 
         # image info
         image_frame = Frame(self.ctrTopPanel)
@@ -111,7 +128,7 @@ class LabelTool:
         self.mainPanel.bind("<Motion>", self.mouse_move)
 
         self.rootPanel.bind("<Escape>", self.cancel_bbox)  # press Escape to cancel current bbox
-        self.rootPanel.bind("c", self.cancel_bbox)
+        self.rootPanel.bind("c", self.cancel_bbox) # press 'c' to cancel creation
         self.rootPanel.bind("a", self.prev_image)  # press 'a' to go backward
         self.rootPanel.bind("<Left>", self.prev_image)  # press '<-' to go backward
         self.rootPanel.bind("d", self.next_image)  # press 'd' to go forward
@@ -201,6 +218,37 @@ class LabelTool:
         self.rootPanel.columnconfigure(5, weight=1)
         self.rootPanel.rowconfigure(6, weight=1)
 
+    def set_code(self):
+        popup = Toplevel(root)
+        width = 250
+        height = 75
+        x = (root.winfo_screenwidth() / 2) - (width / 2)
+        y = (root.winfo_screenheight() / 2) - (height / 2)
+        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
+        popup.title("Set code")
+        popup_frame = Frame(popup)
+        popup_frame.pack(pady=10)
+        entry = Entry(popup_frame, textvariable=self.code, width=25)
+        entry.pack()
+        button_frame = Frame(popup_frame)
+        button_frame.pack(pady=5)
+        Button(button_frame, text="Apply", command=lambda: [self.code.set(entry.get()), popup.destroy()]).grid(row=0, column=0)
+        Button(button_frame, text="Cancel", command=lambda: [popup.destroy()]).grid(row=0, column=1, padx=15)
+        popup.focus_set()
+        return
+
+    def load_model(self):
+        return
+
+    def load_batches(self):
+        return
+
+    def load_batch(self):
+        return
+
+    def upload_labels(self):
+        return
+
     def select_src_dir(self):
         path = filedialog.askdirectory(title="Select image source folder", initialdir=self.svSourcePath.get())
         self.svSourcePath.set(path)
@@ -261,7 +309,6 @@ class LabelTool:
         popup.title("Batch Exported")
         Label(popup, text="Batch exported as: " + zip_file).pack(pady=5)
         Button(popup, text="OK", command=popup.destroy).pack(pady=5)
-        # TODO: Destroy on enter key
         popup.focus_set()
 
         print("Exported currently loaded batch as a zip file: " + zip_file)
