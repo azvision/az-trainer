@@ -225,8 +225,8 @@ class LabelTool:
         batch_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
         Button(batch_frame, text="Set container", command=self.set_container).pack(side=LEFT)
-
         Button(batch_frame, text="Set code", command=self.set_code).pack(side=LEFT, padx=5)
+        Button(batch_frame, text="Load", command=self.load).pack(side=LEFT, padx=5)
 
         self.batchSelector = ttk.Combobox(batch_frame, state='readonly')
         self.batchSelector.pack(side=LEFT, padx=5)
@@ -235,9 +235,7 @@ class LabelTool:
         self.batchSelector.bind("<<ComboboxSelected>>", self.batch_select)
 
         Button(batch_frame, text="Reload model", command=self.reload_model).pack(side=LEFT, padx=5)
-
         Button(batch_frame, text="Reload batches", command=self.reload_batches).pack(side=LEFT, padx=5)
-
         Button(batch_frame, text="Upload labels", command=self.upload_labels).pack(side=LEFT, padx=5)
 
         #         self.classCandidate = ttk.Combobox(self.ctrClassPanel, state='readonly', textvariable=self.className)
@@ -416,7 +414,6 @@ class LabelTool:
         self.labelFileName = ''
         self.tkimg = None
         self.currentLabelClass = ''
-        self.load_model()
 
     def set_code(self):
         popup = Toplevel(root)
@@ -440,9 +437,11 @@ class LabelTool:
     def apply_code(self, new_code):
         self.code.set(new_code)
         self.config['code'] = new_code
+        self.save_config()
+
+    def load(self):
         self.reload_model()
         self.reload_batches()
-        self.save_config()
 
     def reload_model(self, event=None):
         download_folder(self.url, self.container.get(), self.code.get(), 'models', self.containerDir)
