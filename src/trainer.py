@@ -220,7 +220,7 @@ class LabelTool:
         batch_frame = Frame(self.ctrTopPanel)
         batch_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
-        Button(batch_frame, text="Set URL", command=self.set_container()).pack(side=LEFT)
+        Button(batch_frame, text="Set URL", command=self.set_container).pack(side=LEFT)
 
         Button(batch_frame, text="Set code", command=self.set_code).pack(side=LEFT, padx=5)
 
