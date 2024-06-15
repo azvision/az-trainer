@@ -32,6 +32,10 @@ def list_folders_in_folder(local_path):
 
 
 def list_blobs_in_folder(container_url, code, folder_path):
+    if not code:
+        print("The code is empty!")
+        return
+
     try:
         url = f"{container_url}?restype=container&comp=list&prefix={folder_path}&{code}"
         response = requests.get(url)
@@ -75,38 +79,55 @@ def download_blob(blob_url, local_path):
 
 
 def download_folder(container_url, code, folder, local_directory):
-    print("Downloading folder: " + folder)
+    if not code:
+        print("The code is empty!")
+        return
+
+    print(f"Downloading folder: {folder}")
+    
     for blob in list_blobs_in_folder(container_url, code, folder):
         local_path = os.path.join(local_directory, blob)
         blob_url = f"{container_url}/{blob}?{code}"
-        download_blob(blob_url, local_path)
-
-    print("Downloaded folder: " + folder)
+        download_blob(blob_url.replace('\\', '/'), local_path)
 
 
-# TODO: Separate folder and file upload
+def upload_file(file_path, container_url, code, blob_name):
+    if not os.path.exists(file_path):
+        print(f"File not found: {file_path}")
+        return
+
+    blob_url = f"{container_url}/{blob_name}?{code}"
+    try:
+        with open(file_path, 'rb') as file_data:
+            file_content = file_data.read()
+            headers = {
+                'x-ms-blob-type': 'BlockBlob',
+                'Content-Length': str(len(file_content)),
+            }
+
+            response = requests.put(blob_url, data=file_content, headers=headers)
+            response.raise_for_status()
+
+            print(f"Uploaded file: {file_path}")
+    except Exception as error:
+        print(f"An error occurred: {error}")
+
 def upload_folder(local_folder, container_url, code, folder):
-    if not local_folder:
+    if not code:
+        print("The code is empty!")
         return
 
-    if not os.path.isdir(local_folder):
-        print("The dir doesn't exist!")
+    if not local_folder or not os.path.isdir(local_folder):
+        print("The directory doesn't exist or is empty!")
         return
 
-    print("Uploading folder: " + folder)
-    for base, dirs, files in os.walk(local_folder):
+    print(f"Uploading folder: {folder}")
+
+    for base, _, files in os.walk(local_folder):
         for file_name in files:
-            try:
-                file_path = os.path.join(base, file_name)
-                blob_name = os.path.relpath(file_path, local_folder)
-                blob_url = f"{container_url}/{folder}/{blob_name}"
-                with open(file_path, 'rb') as file_data:
-                    response = requests.put(f"{blob_url}?{code}", data=file_data, headers={'x-ms-blob-type': 'BlockBlob'})
-                    response.raise_for_status()
-            except Exception as error:
-                print(f"An error occurred: {error}")
-
-    print("Uploaded folder: " + folder)
+            file_path = os.path.join(base, file_name)
+            blob_name = os.path.relpath(file_path, local_folder).replace("\\", "/")
+            upload_file(file_path, container_url, code, f"{folder}/{blob_name}")
 
 
 class LabelTool:
@@ -329,10 +350,12 @@ class LabelTool:
         self.batch_select()
 
     def save_config(self):
-        with open(self.configFile, 'w') as file:
-            yaml.dump(self.config, file,  default_flow_style=False)
-
-        file.close()
+        try:
+            os.makedirs(os.path.dirname(self.configFile), exist_ok=True)
+            with open(self.configFile, 'w') as file:
+                yaml.dump(self.config, file, default_flow_style=False)
+        except Exception as exception:
+            print(f"Failed to save config: {exception}")
 
     def set_url(self):
         popup = Toplevel(root)
@@ -407,6 +430,7 @@ class LabelTool:
         self.batchList = list_folders_in_folder(self.batchDir)
         self.batchSelector.set(self.batchList)
         self.batchSelector.current(0)
+        popup.destroy()
         return
 
     def batch_select(self, event=None):
@@ -421,7 +445,17 @@ class LabelTool:
         return
 
     def upload_labels(self, event=None):
+        popup = Toplevel(root)
+        width = 100
+        height = 35
+        x = (root.winfo_screenwidth() / 2) - (width / 2)
+        y = (root.winfo_screenheight() / 2) - (height / 2)
+        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
+        popup.title("Uploading...")
+        Label(popup, text="Uploading  labels...").pack(padx=5, pady=5)
+        popup.focus_set()
         upload_folder(os.path.join(self.currentBatchDir, 'labels'), self.containerUrl.get(), self.code.get(), 'batches/' + os.path.basename(self.currentBatchDir) + '/labels')
+        popup.destroy()
         return
 
     def load_dir(self, directory):
@@ -440,7 +474,7 @@ class LabelTool:
         if not os.path.isdir(self.labelsDir):
             os.makedirs(self.labelsDir, exist_ok=True)
 
-        filelist = glob.glob(os.path.join(self.currentBatchDir, "*." + self.fileNameExt))
+        filelist = glob.glob(os.path.join(self.currentBatchDir, f"*.{self.fileNameExt}"))
         filelist = [f.split("\\")[-1] for f in filelist]  # in form of filename
         filelist = [os.path.splitext(f)[0] for f in filelist]  # remove extension
         self.imageList = []  # resets the list because the program gets in a loop after loading a new directory (after one has already been loaded).
@@ -460,42 +494,13 @@ class LabelTool:
 
         self.annotationsList.focus_set()
 
-    #     def export_batch(self):
-    #         if self.labelsDir is None:
-    #             return
-    #
-    #         if not os.path.exists(self.checkedBatchesPath):
-    #             os.makedirs(self.checkedBatchesPath, exist_ok=True)
-    #
-    #         zip_file = self.batchDir + '.zip'
-    #
-    #         with zipfile.ZipFile(zip_file,  'w') as zip_object:
-    #             for folder_name, sub_folders, file_names in os.walk(self.labelsDir):
-    #                 for filename in file_names:
-    #                     zip_object.write(str(os.path.join(folder_name, filename)), os.path.join('labels', filename))
-    #
-    #         popup = Toplevel(root)
-    #         width = 350
-    #         height = 75
-    #         x = (root.winfo_screenwidth() / 2) - (width / 2)
-    #         y = (root.winfo_screenheight() / 2) - (height / 2)
-    #         popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
-    #         popup.title("Batch Exported")
-    #         Label(popup, text="Batch exported as: " + zip_file).pack(pady=5)
-    #         Button(popup, text="OK", command=popup.destroy).pack(pady=5)
-    #         popup.focus_set()
-    #
-    #         print("Exported currently loaded batch as a zip file: " + zip_file)
-    #
-    #         self.annotationsList.focus_set()
-
     def load_image(self):
         self.selectedBbox = -1
         self.tkimg = [0, 0, 0]
 
         # load image
         self.imgRootName = self.imageList[self.cur - 1]
-        img_file_path = os.path.join(self.currentBatchDir, self.imgRootName + "." + self.fileNameExt)
+        img_file_path = os.path.join(self.currentBatchDir, f"{self.imgRootName}.{self.fileNameExt}")
         self.tkimg = self.load_img_from_disk(img_file_path)
         img_width = max(self.tkimg.width() * ZOOM_RATIO, 10)
         img_height = max(self.tkimg.height() * ZOOM_RATIO, 10)
@@ -553,7 +558,7 @@ class LabelTool:
         if self.model is None:
             return
 
-        rgb_img_file_path = os.path.join(self.batchDir, self.imgRootName + "." + self.fileNameExt)
+        rgb_img_file_path = os.path.join(self.batchDir, f"{self.imgRootName}.f{self.fileNameExt}")
         predictions = self.model(rgb_img_file_path)  # predict on an image
         results = []
         for result in predictions:
@@ -590,7 +595,7 @@ class LabelTool:
 
     def get_annotations_metadata(self):
         annotation_file_name = self.imgRootName
-        annotation_file_path = os.path.join(self.labelsDir, annotation_file_name + ".txt")
+        annotation_file_path = os.path.join(self.labelsDir, f"{annotation_file_name}.txt")
         img_width, img_height = self.tkimg.width(), self.tkimg.height()
         return annotation_file_path, img_width, img_height
 
