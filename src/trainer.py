@@ -84,11 +84,11 @@ def download_folder(container_url, code, folder, local_directory):
         return
 
     print(f"Downloading folder: {folder}")
-    
+
     for blob in list_blobs_in_folder(container_url, code, folder):
-        local_path = os.path.join(local_directory, blob)
+        local_path = os.path.join(local_directory, blob).replace('\\', '/')
         blob_url = f"{container_url}/{blob}?{code}"
-        download_blob(blob_url.replace('\\', '/'), local_path)
+        download_blob(blob_url, local_path)
 
 
 def upload_file(file_path, container_url, code, blob_name):
