@@ -394,6 +394,29 @@ class LabelTool:
         self.containerDir = os.path.join(self.dataDir, self.container.get())
         self.modelDir = os.path.join(self.containerDir, 'models')
         self.batchDir = os.path.join(self.containerDir, 'batches')
+        self.del_all_bboxes()
+        self.mainPanel.delete(self.tkimg)
+        self.selectedBbox = 0
+        self.STATE = {}
+        self.bboxIdList = []
+        self.curBBoxId = None
+        self.horizontalLine = None
+        self.verticalLine = None
+        self.model = None
+        self.currentBatchDir = ''
+        self.imageList = []
+        self.cur = 0
+        self.total = 0
+        self.imgRootName = None
+        self.imageName = ''
+        self.batchList = list_folders_in_folder(self.batchDir)
+        self.batchSelector['values'] = self.batchList if self.batchList else [""]
+        self.batchSelector.current(0)
+        self.labelsDir = None
+        self.labelFileName = ''
+        self.tkimg = None
+        self.currentLabelClass = ''
+        self.load_model()
 
     def set_code(self):
         popup = Toplevel(root)
@@ -491,10 +514,9 @@ class LabelTool:
             os.makedirs(self.labelsDir, exist_ok=True)
 
         filelist = glob.glob(os.path.join(self.currentBatchDir, f"*.{self.fileNameExt}"))
-        filelist = [f.split("\\")[-1] for f in filelist]  # in form of filename
-        filelist = [os.path.splitext(f)[0] for f in filelist]  # remove extension
-        self.imageList = []  # resets the list because the program gets in a loop after loading a new directory (after one has already been loaded).
-        self.imageList.extend(filelist)
+        filelist = [file.split("\\")[-1] for file in filelist]  # in form of filename
+        filelist = [os.path.splitext(file)[0] for file in filelist]  # remove extension
+        self.imageList = filelist.copy()
 
         if len(self.imageList) == 0:
             print('No .jpg images found in the specified dir!')
