@@ -1,7 +1,7 @@
 import ast
 import pathlib
 from datetime import datetime
-from tkinter import END, LEFT, N, S, W, E, StringVar, Tk, Text
+from tkinter import END, LEFT, N, S, W, E, StringVar, Tk
 from tkinter import Button, Canvas, Entry, Frame, Label, Listbox, Toplevel
 from tkinter import messagebox
 from tkinter import ttk
