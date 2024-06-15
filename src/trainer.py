@@ -24,6 +24,10 @@ ZOOM_RATIO = 2
 
 
 def list_folders_in_folder(local_path):
+    if not os.path.isdir(local_path) or not os.path.exists(local_path):
+        print(f"Path doesn't exist or isn't a directory: {local_path}")
+        return []
+
     try:
         return [entry for entry in os.listdir(local_path) if os.path.isdir(os.path.join(local_path, entry))]
     except Exception as error:
@@ -220,7 +224,7 @@ class LabelTool:
         batch_frame = Frame(self.ctrTopPanel)
         batch_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
-        Button(batch_frame, text="Set URL", command=self.set_container).pack(side=LEFT)
+        Button(batch_frame, text="Set container", command=self.set_container).pack(side=LEFT)
 
         Button(batch_frame, text="Set code", command=self.set_code).pack(side=LEFT, padx=5)
 
