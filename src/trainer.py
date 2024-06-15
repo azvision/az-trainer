@@ -31,13 +31,13 @@ def list_folders_in_folder(local_path):
         return []
 
 
-def list_blobs_in_folder(container_url, code, folder_path):
+def list_blobs_in_folder(url, container, code, folder_path):
     if not code:
         print("The code is empty!")
         return
 
     try:
-        url = f"{container_url}?restype=container&comp=list&prefix={folder_path}&{code}"
+        url = f"{url}{container}?restype=container&comp=list&prefix={folder_path}&{code}"
         response = requests.get(url)
         response.raise_for_status()
         blobs = [blob.find('Name').text for blob in ElementTree.fromstring(response.content).findall('.//Blob')]
@@ -78,25 +78,25 @@ def download_blob(blob_url, local_path):
         print(f"An error occurred: {error}")
 
 
-def download_folder(container_url, code, folder, local_directory):
+def download_folder(url, container, code, folder, local_directory):
     if not code:
         print("The code is empty!")
         return
 
     print(f"Downloading folder: {folder}")
 
-    for blob in list_blobs_in_folder(container_url, code, folder):
+    for blob in list_blobs_in_folder(url, container, code, folder):
         local_path = os.path.join(local_directory, blob).replace('\\', '/')
-        blob_url = f"{container_url}/{blob}?{code}"
+        blob_url = f"{url}{container}/{blob}?{code}"
         download_blob(blob_url, local_path)
 
 
-def upload_file(file_path, container_url, code, blob_name):
+def upload_file(file_path, url, container, code, blob_name):
     if not os.path.exists(file_path):
         print(f"File not found: {file_path}")
         return
 
-    blob_url = f"{container_url}/{blob_name}?{code}"
+    blob_url = f"{url}{container}/{blob_name}?{code}"
     try:
         with open(file_path, 'rb') as file_data:
             file_content = file_data.read()
@@ -112,7 +112,8 @@ def upload_file(file_path, container_url, code, blob_name):
     except Exception as error:
         print(f"An error occurred: {error}")
 
-def upload_folder(local_folder, container_url, code, folder):
+
+def upload_folder(local_folder, url, container, code, folder):
     if not code:
         print("The code is empty!")
         return
@@ -127,7 +128,7 @@ def upload_folder(local_folder, container_url, code, folder):
         for file_name in files:
             file_path = os.path.join(base, file_name)
             blob_name = os.path.relpath(file_path, local_folder).replace("\\", "/")
-            upload_file(file_path, container_url, code, f"{folder}/{blob_name}")
+            upload_file(file_path, url, container, code, f"{folder}/{blob_name}")
 
 
 class LabelTool:
@@ -139,15 +140,13 @@ class LabelTool:
 
         self.baseDir = os.path.dirname(os.path.dirname(__file__))
         self.dataDir = os.path.join(self.baseDir, 'data')
-        self.modelDir = os.path.join(self.dataDir, 'models')
-        self.batchDir = os.path.join(self.dataDir, 'batches')
         self.this_repo = str(pathlib.Path(__file__).parent.resolve().parent)
         self.configFile = os.path.join(self.dataDir, 'config', 'config.yml')
 
         # initialize global state
         self.config = {}
-        self.containerUrl = StringVar()
-        self.containerUrl.set("https://peoplecounterstore.blob.core.windows.net/annotations-mas-classes")
+        self.container = StringVar()
+        self.container.set("annotations-mas-classes")
         self.code = StringVar()
         self.code.set("")
         self.nextBboxAfterClass = True
@@ -155,8 +154,8 @@ class LabelTool:
         if os.path.exists(self.configFile):
             with open(self.configFile, 'r') as file:
                 self.config = yaml.safe_load(file)
-                if 'container_url' in self.config:
-                    self.containerUrl.set(str(self.config['container_url']))
+                if 'container' in self.config:
+                    self.container.set(str(self.config['container']))
 
                 if 'code' in self.config:
                     self.code.set(str(self.config['code']))
@@ -166,6 +165,14 @@ class LabelTool:
 
                 file.close()
 
+        if not self.container.get():
+            self.container.set("annotations-mas-classes")
+
+        self.containerDir = os.path.join(self.dataDir, self.container.get())
+        self.modelDir = os.path.join(self.containerDir, 'models')
+        self.batchDir = os.path.join(self.containerDir, 'batches')
+
+        self.url = "https://peoplecounterstore.blob.core.windows.net/"
         self.model = None
         self.currentBatchDir = ''
         self.imageList = []
@@ -357,29 +364,32 @@ class LabelTool:
         except Exception as exception:
             print(f"Failed to save config: {exception}")
 
-    def set_url(self):
+    def set_container(self):
         popup = Toplevel(root)
         width = 250
         height = 75
         x = (root.winfo_screenwidth() / 2) - (width / 2)
         y = (root.winfo_screenheight() / 2) - (height / 2)
         popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
-        popup.title("Set URL")
+        popup.title("Set container")
         popup_frame = Frame(popup)
         popup_frame.pack(pady=10)
-        entry = Entry(popup_frame, textvariable=self.containerUrl, width=25)
+        entry = Entry(popup_frame, textvariable=self.container, width=25)
         entry.pack()
         button_frame = Frame(popup_frame)
         button_frame.pack(pady=5)
-        Button(button_frame, text="Apply", command=lambda: [self.apply_url(entry.get()), popup.destroy()]).grid(row=0, column=0)
+        Button(button_frame, text="Apply", command=lambda: [self.apply_container(entry.get()), popup.destroy()]).grid(row=0, column=0)
         Button(button_frame, text="Cancel", command=lambda: [popup.destroy()]).grid(row=0, column=1, padx=15)
         popup.focus_set()
         return
 
-    def apply_url(self, new_url):
-        self.containerUrl.set(new_url)
-        self.config['container_url'] = new_url
+    def apply_container(self, new_container):
+        self.container.set(new_container)
+        self.config['container'] = new_container
         self.save_config()
+        self.containerDir = os.path.join(self.dataDir, self.container.get())
+        self.modelDir = os.path.join(self.containerDir, 'models')
+        self.batchDir = os.path.join(self.containerDir, 'batches')
 
     def set_code(self):
         popup = Toplevel(root)
@@ -403,10 +413,12 @@ class LabelTool:
     def apply_code(self, new_code):
         self.code.set(new_code)
         self.config['code'] = new_code
+        self.reload_model()
+        self.reload_batches()
         self.save_config()
 
     def reload_model(self, event=None):
-        download_folder(self.containerUrl.get(), self.code.get(), 'models', self.dataDir)
+        download_folder(self.url, self.container.get(), self.code.get(), 'models', self.containerDir)
         self.load_model()
 
     def load_model(self):
@@ -426,7 +438,7 @@ class LabelTool:
         popup.title("Reloading...")
         Label(popup, text="Downloading batches...").pack(padx=5, pady=5)
         popup.focus_set()
-        download_folder(self.containerUrl.get(), self.code.get(), 'batches', self.dataDir)
+        download_folder(self.url, self.container.get(), self.code.get(), 'batches', self.containerDir)
         self.batchList = list_folders_in_folder(self.batchDir)
         self.batchSelector.set(self.batchList)
         self.batchSelector.current(0)
@@ -454,7 +466,7 @@ class LabelTool:
         popup.title("Uploading...")
         Label(popup, text="Uploading  labels...").pack(padx=5, pady=5)
         popup.focus_set()
-        upload_folder(os.path.join(self.currentBatchDir, 'labels'), self.containerUrl.get(), self.code.get(), 'batches/' + os.path.basename(self.currentBatchDir) + '/labels')
+        upload_folder(os.path.join(self.currentBatchDir, 'labels'), self.url, self.container.get(), self.code.get(), 'batches/' + os.path.basename(self.currentBatchDir) + '/labels')
         popup.destroy()
         return
 
