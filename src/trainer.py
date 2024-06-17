@@ -235,7 +235,6 @@ class LabelTool:
         self.batchSelector.bind("<<ComboboxSelected>>", self.batch_select)
 
         Button(batch_frame, text="Reload model", command=self.reload_model).pack(side=LEFT, padx=5)
-        Button(batch_frame, text="Reload batches", command=self.reload_batches).pack(side=LEFT, padx=5)
         Button(batch_frame, text="Upload labels", command=self.upload_labels).pack(side=LEFT, padx=5)
 
         #         self.classCandidate = ttk.Combobox(self.ctrClassPanel, state='readonly', textvariable=self.className)
@@ -386,34 +385,16 @@ class LabelTool:
         return
 
     def apply_container(self, new_container):
+        if not self.code.get() or self.code.get() == "":
+            return
+
         self.container.set(new_container)
         self.config['container'] = new_container
         self.save_config()
         self.containerDir = os.path.join(self.dataDir, self.container.get())
         self.modelDir = os.path.join(self.containerDir, 'models')
         self.batchDir = os.path.join(self.containerDir, 'batches')
-        self.del_all_bboxes()
-        self.mainPanel.delete(self.tkimg)
-        self.selectedBbox = 0
-        self.STATE = {}
-        self.bboxIdList = []
-        self.curBBoxId = None
-        self.horizontalLine = None
-        self.verticalLine = None
-        self.model = None
-        self.currentBatchDir = ''
-        self.imageList = []
-        self.cur = 0
-        self.total = 0
-        self.imgRootName = None
-        self.imageName = ''
-        self.batchList = list_folders_in_folder(self.batchDir)
-        self.batchSelector['values'] = self.batchList if self.batchList else [""]
-        self.batchSelector.current(0)
-        self.labelsDir = None
-        self.labelFileName = ''
-        self.tkimg = None
-        self.currentLabelClass = ''
+        self.load()
 
     def set_code(self):
         popup = Toplevel(root)
@@ -440,6 +421,28 @@ class LabelTool:
         self.save_config()
 
     def load(self):
+        self.del_all_bboxes()
+        self.mainPanel.delete(self.tkimg)
+        self.selectedBbox = 0
+        self.STATE = {}
+        self.bboxIdList = []
+        self.curBBoxId = None
+        self.horizontalLine = None
+        self.verticalLine = None
+        self.model = None
+        self.currentBatchDir = ''
+        self.imageList = []
+        self.cur = 0
+        self.total = 0
+        self.imgRootName = None
+        self.imageName = ''
+        self.batchList = []
+        self.batchSelector['values'] = [""]
+        self.batchSelector.current(0)
+        self.labelsDir = None
+        self.labelFileName = ''
+        self.tkimg = None
+        self.currentLabelClass = ''
         self.reload_model()
         self.reload_batches()
 
