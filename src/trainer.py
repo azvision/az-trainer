@@ -1,5 +1,6 @@
 import ast
 import pathlib
+import re
 from datetime import datetime
 from tkinter import END, LEFT, N, S, W, E, StringVar, Tk
 from tkinter import Button, Canvas, Entry, Frame, Label, Listbox, Toplevel
@@ -148,35 +149,19 @@ class LabelTool:
         self.configFile = os.path.join(self.dataDir, 'config', 'config.yml')
 
         # initialize global state
-        self.config = {}
-        self.container = StringVar()
-        self.container.set("annotations-mas-classes")
-        self.code = StringVar()
-        self.code.set("")
-        self.nextBboxAfterClass = True
-
+        self.config = {'url': "", 'container': "", 'code': "", 'next_box_after_class_set': True}
         if os.path.exists(self.configFile):
             with open(self.configFile, 'r') as file:
-                self.config = yaml.safe_load(file)
-                if 'container' in self.config:
-                    self.container.set(str(self.config['container']))
+                loaded_config = yaml.safe_load(file)
+                if loaded_config is not None:
+                    self.config = loaded_config
 
-                if 'code' in self.config:
-                    self.code.set(str(self.config['code']))
+        file.close()
 
-                if 'next_box_after_class_set' in self.config:
-                    self.nextBboxAfterClass = self.config['next_box_after_class_set']
-
-                file.close()
-
-        if not self.container.get():
-            self.container.set("annotations-mas-classes")
-
-        self.containerDir = os.path.join(self.dataDir, self.container.get())
+        self.containerDir = os.path.join(self.dataDir, self.config['container'])
         self.modelDir = os.path.join(self.containerDir, 'models')
         self.batchDir = os.path.join(self.containerDir, 'batches')
 
-        self.url = "https://peoplecounterstore.blob.core.windows.net/"
         self.model = None
         self.currentBatchDir = ''
         self.imageList = []
@@ -224,7 +209,6 @@ class LabelTool:
         batch_frame = Frame(self.ctrTopPanel)
         batch_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
-        Button(batch_frame, text="Set container", command=self.set_container).pack(side=LEFT)
         Button(batch_frame, text="Set code", command=self.set_code).pack(side=LEFT, padx=5)
         Button(batch_frame, text="Load", command=self.load).pack(side=LEFT, padx=5)
 
@@ -298,7 +282,7 @@ class LabelTool:
         next_bbox_frame.grid(row=2, column=0, sticky=W + N)
         next_bbox_label = Label(next_bbox_frame, text='Next box on set:')
         next_bbox_label.pack(side=LEFT)
-        next_bbox_text = 'ON' if self.nextBboxAfterClass else 'OFF'
+        next_bbox_text = 'ON' if self.config['next_box_after_class_set'] else 'OFF'
         self.bNextBboxAfterClass = Button(next_bbox_frame, text=next_bbox_text, command=self.toggle_next_bbox_after_class)
         self.bNextBboxAfterClass.pack(side=LEFT)
 
@@ -365,37 +349,6 @@ class LabelTool:
         except Exception as exception:
             print(f"Failed to save config: {exception}")
 
-    def set_container(self):
-        popup = Toplevel(root)
-        width = 250
-        height = 75
-        x = (root.winfo_screenwidth() / 2) - (width / 2)
-        y = (root.winfo_screenheight() / 2) - (height / 2)
-        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
-        popup.title("Set container")
-        popup_frame = Frame(popup)
-        popup_frame.pack(pady=10)
-        entry = Entry(popup_frame, textvariable=self.container, width=25)
-        entry.pack()
-        button_frame = Frame(popup_frame)
-        button_frame.pack(pady=5)
-        Button(button_frame, text="Apply", command=lambda: [self.apply_container(entry.get()), popup.destroy()]).grid(row=0, column=0)
-        Button(button_frame, text="Cancel", command=lambda: [popup.destroy()]).grid(row=0, column=1, padx=15)
-        popup.focus_set()
-        return
-
-    def apply_container(self, new_container):
-        if not self.code.get() or self.code.get() == "":
-            return
-
-        self.container.set(new_container)
-        self.config['container'] = new_container
-        self.save_config()
-        self.containerDir = os.path.join(self.dataDir, self.container.get())
-        self.modelDir = os.path.join(self.containerDir, 'models')
-        self.batchDir = os.path.join(self.containerDir, 'batches')
-        self.load()
-
     def set_code(self):
         popup = Toplevel(root)
         width = 250
@@ -406,7 +359,7 @@ class LabelTool:
         popup.title("Set code")
         popup_frame = Frame(popup)
         popup_frame.pack(pady=10)
-        entry = Entry(popup_frame, textvariable=self.code, width=25)
+        entry = Entry(popup_frame, width=25)
         entry.pack()
         button_frame = Frame(popup_frame)
         button_frame.pack(pady=5)
@@ -416,9 +369,17 @@ class LabelTool:
         return
 
     def apply_code(self, new_code):
-        self.code.set(new_code)
-        self.config['code'] = new_code
+        url_search = re.search(r"(https://[^/]+/)", new_code)
+        self.config['url'] = url_search.group(1) if url_search else ""
+        container_search = re.search(r"https://[^/]+/([^?]+)\?sv=", new_code)
+        self.config['container'] = container_search.group(1) if container_search else ""
+        code_search = re.search(r"\?sv=(.+)", new_code)
+        self.config['code'] = "sv=" + code_search.group(1) if code_search else ""
         self.save_config()
+        self.containerDir = os.path.join(self.dataDir, self.config['container'])
+        self.modelDir = os.path.join(self.containerDir, 'models')
+        self.batchDir = os.path.join(self.containerDir, 'batches')
+        self.load()
 
     def load(self):
         self.del_all_bboxes()
@@ -447,7 +408,7 @@ class LabelTool:
         self.reload_batches()
 
     def reload_model(self, event=None):
-        download_folder(self.url, self.container.get(), self.code.get(), 'models', self.containerDir)
+        download_folder(self.config['url'], self.config['container'], self.config['code'], 'models', self.containerDir)
         self.load_model()
 
     def load_model(self):
@@ -467,7 +428,7 @@ class LabelTool:
         popup.title("Reloading...")
         Label(popup, text="Downloading batches...").pack(padx=5, pady=5)
         popup.focus_set()
-        download_folder(self.url, self.container.get(), self.code.get(), 'batches', self.containerDir)
+        download_folder(self.config['url'], self.config['container'], self.config['code'], 'batches', self.containerDir)
         self.batchList = list_folders_in_folder(self.batchDir)
         self.batchSelector.set(self.batchList)
         self.batchSelector.current(0)
@@ -495,7 +456,7 @@ class LabelTool:
         popup.title("Uploading...")
         Label(popup, text="Uploading  labels...").pack(padx=5, pady=5)
         popup.focus_set()
-        upload_folder(os.path.join(self.currentBatchDir, 'labels'), self.url, self.container.get(), self.code.get(), 'batches/' + os.path.basename(self.currentBatchDir) + '/labels')
+        upload_folder(os.path.join(self.currentBatchDir, 'labels'), self.config['url'], self.config['container'], self.config['code'], 'batches/' + os.path.basename(self.currentBatchDir) + '/labels')
         popup.destroy()
         return
 
@@ -665,9 +626,9 @@ class LabelTool:
             self.render_boxes()
 
     def toggle_next_bbox_after_class(self):
-        self.nextBboxAfterClass = not self.nextBboxAfterClass
-        self.config['next_box_after_class_set'] = self.nextBboxAfterClass
-        new_text = "ON" if self.nextBboxAfterClass else "OFF"
+        self.config['next_box_after_class_set'] = not self.config['next_box_after_class_set']
+        self.config['next_box_after_class_set'] = self.config['next_box_after_class_set']
+        new_text = "ON" if self.config['next_box_after_class_set'] else "OFF"
         self.bNextBboxAfterClass.config(text=new_text)
         self.save_config()
 
@@ -773,7 +734,7 @@ class LabelTool:
                     self.annotationsList.itemconfig(idx, {'fg': COLORS[target_class_index]})
             idx += 1
 
-        if self.nextBboxAfterClass:
+        if self.config['next_box_after_class_set']:
             self.arrow_down()
 
         self.render_boxes()
