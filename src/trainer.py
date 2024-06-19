@@ -36,6 +36,22 @@ def list_folders_in_folder(local_path):
         return []
 
 
+def list_folders_in_folder_azure(url, container, code, folder_path):
+    folders = []
+    blobs = list_blobs_in_folder(url, container, code, folder_path)
+    if len(blobs) <= 0:
+        return []
+
+    for folder in blobs:
+        folder_name = folder.split('/')[1]
+        if folder_name in folders:
+            continue
+
+        folders.append(folder_name)
+
+    return folders
+
+
 def list_blobs_in_folder(url, container, code, folder_path):
     if not code:
         print("The code is empty!")
@@ -169,7 +185,7 @@ class LabelTool:
         self.total = 0
         self.imgRootName = None
         self.imageName = ''
-        self.batchList = list_folders_in_folder(self.batchDir)
+        self.batchList = list_folders_in_folder_azure(self.config['url'], self.config['container'], self.config['code'], "batches")
         self.labelsDir = None
         self.labelFileName = ''
         self.tkimg = None
@@ -195,10 +211,6 @@ class LabelTool:
         self.horizontalLine = None
         self.verticalLine = None
 
-        #  loading
-
-        self.load_model()
-
         # ----------------- GUI stuff ---------------------
 
         # Top panel stuff
@@ -210,32 +222,16 @@ class LabelTool:
         batch_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
         Button(batch_frame, text="Set code", command=self.set_code).pack(side=LEFT, padx=5)
-        Button(batch_frame, text="Load", command=self.load).pack(side=LEFT, padx=5)
+        Button(batch_frame, text="Load model", command=self.reload_model).pack(side=LEFT, padx=5)
 
         self.batchSelector = ttk.Combobox(batch_frame, state='readonly')
         self.batchSelector.pack(side=LEFT, padx=5)
         self.batchSelector['values'] = self.batchList if self.batchList else [""]
-        self.batchSelector.current(0)
-        self.batchSelector.bind("<<ComboboxSelected>>", self.batch_select)
+        if len(self.batchSelector['values']) > 0:
+            self.batchSelector.current(0)
 
-        Button(batch_frame, text="Reload model", command=self.reload_model).pack(side=LEFT, padx=5)
+        Button(batch_frame, text="Load batch", command=self.batch_download_select).pack(side=LEFT, padx=5)
         Button(batch_frame, text="Upload labels", command=self.upload_labels).pack(side=LEFT, padx=5)
-
-        #         self.classCandidate = ttk.Combobox(self.ctrClassPanel, state='readonly', textvariable=self.className)
-        #         self.classCandidate.grid(row=1, column=0, sticky=W + N)
-        #         if os.path.exists(self.classCandidateFile):
-        #             with open(self.classCandidateFile) as cf:
-        #                 for line in cf.readlines():
-        #                     self.classesList.append(line.strip('\n'))
-        #
-        #         numbered_classes_list = self.classesList.copy()
-        #         for class_id in range(len(numbered_classes_list)):
-        #             numbered_classes_list[class_id] = numbered_classes_list[class_id] + ' (' + str(class_id + 1) + ')'
-        #
-        #         self.classCandidate['values'] = numbered_classes_list
-        #         self.classCandidate.current(0)
-        #         self.class_on_create()
-        #         self.classCandidate.bind("<<ComboboxSelected>>", self.class_on_create)
 
         # image info
         image_frame = Frame(self.ctrTopPanel)
@@ -338,6 +334,8 @@ class LabelTool:
         self.rootPanel.columnconfigure(5, weight=1)
         self.rootPanel.rowconfigure(6, weight=1)
 
+        #  loading
+
         self.reload_model()
         self.batch_select()
 
@@ -379,9 +377,13 @@ class LabelTool:
         self.containerDir = os.path.join(self.dataDir, self.config['container'])
         self.modelDir = os.path.join(self.containerDir, 'models')
         self.batchDir = os.path.join(self.containerDir, 'batches')
-        self.load()
+        self.unload()
+        self.batchList = list_folders_in_folder_azure(self.config['url'], self.config['container'], self.config['code'], "batches")
+        if len(self.batchList) > 0:
+            self.batchSelector['values'] = self.batchList
+            self.batchSelector.current(0)
 
-    def load(self):
+    def unload(self):
         self.del_all_bboxes()
         self.mainPanel.delete(self.tkimg)
         self.selectedBbox = 0
@@ -390,7 +392,6 @@ class LabelTool:
         self.curBBoxId = None
         self.horizontalLine = None
         self.verticalLine = None
-        self.model = None
         self.currentBatchDir = ''
         self.imageList = []
         self.cur = 0
@@ -403,9 +404,6 @@ class LabelTool:
         self.labelsDir = None
         self.labelFileName = ''
         self.tkimg = None
-        self.currentLabelClass = ''
-        self.reload_model()
-        self.reload_batches()
 
     def reload_model(self, event=None):
         download_folder(self.config['url'], self.config['container'], self.config['code'], 'models', self.containerDir)
@@ -418,32 +416,43 @@ class LabelTool:
         else:
             self.model = None
 
-    def reload_batches(self, event=None):
-        popup = Toplevel(root)
-        width = 100
-        height = 35
-        x = (root.winfo_screenwidth() / 2) - (width / 2)
-        y = (root.winfo_screenheight() / 2) - (height / 2)
-        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
-        popup.title("Reloading...")
-        Label(popup, text="Downloading batches...").pack(padx=5, pady=5)
-        popup.focus_set()
-        download_folder(self.config['url'], self.config['container'], self.config['code'], 'batches', self.containerDir)
-        self.batchList = list_folders_in_folder(self.batchDir)
-        self.batchSelector.set(self.batchList)
-        self.batchSelector.current(0)
-        popup.destroy()
-        return
+    def batch_download_select(self, event=None):
+        self.download_batch()
+        self.batch_select()
 
     def batch_select(self, event=None):
         index = self.batchSelector.current()
         if index < 0 or index >= len(self.batchList):
             return
 
-        self.load_batch(self.batchList[index])
+        batch = self.batchList[index]
 
-    def load_batch(self, batch):
+        if not batch:
+            return
+
         self.load_dir(os.path.join(self.batchDir, batch))
+
+    def download_batch(self, event=None):
+        index = self.batchSelector.current()
+        if index < 0 or index >= len(self.batchList):
+            return
+
+        batch = self.batchList[index]
+
+        if not batch:
+            return
+
+        popup = Toplevel(root)
+        width = 100
+        height = 35
+        x = (root.winfo_screenwidth() / 2) - (width / 2)
+        y = (root.winfo_screenheight() / 2) - (height / 2)
+        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
+        popup.title("Downloading...")
+        Label(popup, text="Downloading batch...").pack(padx=5, pady=5)
+        popup.focus_set()
+        download_folder(self.config['url'], self.config['container'], self.config['code'], f"batches/{batch}", self.containerDir)
+        popup.destroy()
         return
 
     def upload_labels(self, event=None):
@@ -516,17 +525,19 @@ class LabelTool:
 
         # load labels
         xyxy_list = self.get_boxes_from_file()
-        if xyxy_list is None:
+        if xyxy_list is None and self.model is not None:
             xyxy_list = self.get_predictions_from_yolo()
 
-        first = True
-        for x1, y1, x2, y2, classIndex, selected in xyxy_list:
-            box_string = self.get_bbox_string(x1, y1, x2, y2, classIndex, True if first else selected)
-            self.annotationsList.insert(END, box_string)
-            self.annotationsList.itemconfig(END, {'fg': COLORS[classIndex]})
-            if first:
-                self.selectedBbox = 0
-            first = False
+        if xyxy_list is not None:
+            first = True
+            for x1, y1, x2, y2, classIndex, selected in xyxy_list:
+                box_string = self.get_bbox_string(x1, y1, x2, y2, classIndex, True if first else selected)
+                self.annotationsList.insert(END, box_string)
+                self.annotationsList.itemconfig(END, {'fg': COLORS[classIndex]})
+                if first:
+                    self.selectedBbox = 0
+
+                first = False
 
     def get_bbox_string(self, x1, y1, x2, y2, class_index, selected):
         bbox_id = self.create_bbox(x1, y1, x2, y2, COLORS[class_index], selected)
@@ -557,9 +568,12 @@ class LabelTool:
 
     def get_predictions_from_yolo(self):
         if self.model is None:
-            return
+            return None
 
         rgb_img_file_path = os.path.join(self.batchDir, f"{self.imgRootName}.f{self.fileNameExt}")
+        if not os.path.exists(rgb_img_file_path):
+            return None
+
         predictions = self.model(rgb_img_file_path)  # predict on an image
         results = []
         for result in predictions:
