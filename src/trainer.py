@@ -290,7 +290,9 @@ class LabelTool:
         self.annotationsList.grid(row=7, column=0, columnspan=2, sticky=N + S + W)
         self.annotationsList.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.annotationsList.bind("<Up>", self.arrow_up)
+        self.annotationsList.bind("w", self.arrow_up)
         self.annotationsList.bind("<Down>", self.arrow_down)
+        self.annotationsList.bind("s", self.arrow_down)
         self.annotationsList.bind("1", self.set_class)  # press to select class
         self.annotationsList.bind("2", self.set_class)  # press to select class
         self.annotationsList.bind("3", self.set_class)  # press to select class
