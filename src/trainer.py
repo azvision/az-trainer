@@ -37,6 +37,18 @@ def list_folders_in_folder(local_path):
 
 
 def list_folders_in_folder_azure(url, container, code, folder_path):
+    if not url:
+        print("The url is empty!")
+        return
+
+    if not container:
+        print("The container is empty!")
+        return
+
+    if not code:
+        print("The code is empty!")
+        return
+
     folders = []
     blobs = list_blobs_in_folder(url, container, code, folder_path)
     if len(blobs) <= 0:
@@ -53,8 +65,20 @@ def list_folders_in_folder_azure(url, container, code, folder_path):
 
 
 def list_blobs_in_folder(url, container, code, folder_path):
+    if not url:
+        print("The url is empty!")
+        return
+
+    if not container:
+        print("The container is empty!")
+        return
+
     if not code:
         print("The code is empty!")
+        return
+
+    if not folder_path:
+        print("The folder path is empty!")
         return
 
     try:
@@ -69,6 +93,10 @@ def list_blobs_in_folder(url, container, code, folder_path):
 
 
 def get_blob_properties(blob_url):
+    if not blob_url:
+        print("The blob url is empty!")
+        return
+
     try:
         response = requests.head(blob_url)
         response.raise_for_status()
@@ -79,6 +107,10 @@ def get_blob_properties(blob_url):
 
 
 def download_blob(blob_url, local_path):
+    if not blob_url:
+        print("The blob url is empty!")
+        return
+
     if os.path.exists(local_path):
         blob_last_modified = get_blob_properties(blob_url).get('last_modified')
         if blob_last_modified and blob_last_modified <= datetime.fromtimestamp(os.path.getmtime(local_path)):
@@ -100,8 +132,20 @@ def download_blob(blob_url, local_path):
 
 
 def download_folder(url, container, code, folder, local_directory):
+    if not url:
+        print("The url is empty!")
+        return
+
+    if not container:
+        print("The container is empty!")
+        return
+
     if not code:
         print("The code is empty!")
+        return
+
+    if not os.path.exists(local_directory):
+        print(f"Folder not found: {local_directory}")
         return
 
     print(f"Downloading folder: {folder}")
@@ -115,6 +159,22 @@ def download_folder(url, container, code, folder, local_directory):
 def upload_file(file_path, url, container, code, blob_name):
     if not os.path.exists(file_path):
         print(f"File not found: {file_path}")
+        return
+
+    if not url:
+        print("The url is empty!")
+        return
+
+    if not container:
+        print("The container is empty!")
+        return
+
+    if not code:
+        print("The code is empty!")
+        return
+
+    if not blob_name:
+        print("The blob name is empty!")
         return
 
     blob_url = f"{url}{container}/{blob_name}?{code}"
@@ -135,12 +195,24 @@ def upload_file(file_path, url, container, code, blob_name):
 
 
 def upload_folder(local_folder, url, container, code, folder):
+    if not local_folder or not os.path.isdir(local_folder):
+        print("The directory doesn't exist or is empty!")
+        return
+
+    if not url:
+        print("The url is empty!")
+        return
+
+    if not container:
+        print("The container is empty!")
+        return
+
     if not code:
         print("The code is empty!")
         return
 
-    if not local_folder or not os.path.isdir(local_folder):
-        print("The directory doesn't exist or is empty!")
+    if not folder:
+        print("The folder to upload to is not specified!")
         return
 
     print(f"Uploading folder: {folder}")
@@ -172,7 +244,7 @@ class LabelTool:
                 if loaded_config is not None:
                     self.config = loaded_config
 
-        file.close()
+            file.close()
 
         self.containerDir = os.path.join(self.dataDir, self.config['container'])
         self.modelDir = os.path.join(self.containerDir, 'models')
