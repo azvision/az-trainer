@@ -51,19 +51,28 @@ def list_folders_in_folder_azure(url, container, code, folder_path):
         print("The code is empty!")
         return
 
-    folders = []
-    blobs = list_blobs_in_folder(url, container, code, folder_path)
-    if len(blobs) <= 0:
+    if folder_path and not folder_path.endswith('/'):
+        folder_path += '/'
+
+    try:
+        list_url = f"{url}{container}?restype=container&comp=list&prefix={folder_path}&delimiter=/&{code}"
+        response = requests.get(list_url)
+        response.raise_for_status()
+
+        folders = []
+        for blob_prefix in ElementTree.fromstring(response.content).findall('.//BlobPrefix'):
+            name_element = blob_prefix.find('Name')
+            if name_element is not None and name_element.text:
+                prefix_text = name_element.text
+                if prefix_text != folder_path.rstrip('/'):
+                    subfolder = prefix_text[len(folder_path):].rstrip('/')
+                    if subfolder:
+                        folders.append(subfolder)
+
+        return folders
+    except Exception as error:
+        print(f"An error occurred: {error}")
         return []
-
-    for folder in blobs:
-        folder_name = folder.split('/')[1]
-        if folder_name in folders:
-            continue
-
-        folders.append(folder_name)
-
-    return folders
 
 
 def list_blobs_in_folder(url, container, code, folder_path):
