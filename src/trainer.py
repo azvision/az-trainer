@@ -1,6 +1,7 @@
 import ast
 import pathlib
 import re
+import threading
 from datetime import datetime
 from tkinter import END, LEFT, N, S, W, E, StringVar, Tk
 from tkinter import Button, Canvas, Entry, Frame, Label, Listbox, Toplevel
@@ -14,6 +15,7 @@ from PIL import Image, ImageTk
 import os
 import glob
 
+from tqdm import tqdm
 from ultralytics import YOLO
 
 # colors for the bboxes
@@ -150,7 +152,7 @@ def download_folder(url, container, code, folder, local_directory):
 
     print(f"Downloading folder: {folder}")
 
-    for blob in list_blobs_in_folder(url, container, code, folder):
+    for blob in tqdm(list_blobs_in_folder(url, container, code, folder), desc="Downloading files"):
         local_path = os.path.join(local_directory, blob).replace('\\', '/')
         blob_url = f"{url}{container}/{blob}?{code}"
         download_blob(blob_url, local_path)
@@ -218,7 +220,7 @@ def upload_folder(local_folder, url, container, code, folder):
     print(f"Uploading folder: {folder}")
 
     for base, _, files in os.walk(local_folder):
-        for file_name in files:
+        for file_name in tqdm(files, desc="Uploading files"):
             file_path = os.path.join(base, file_name)
             blob_name = os.path.relpath(file_path, local_folder).replace("\\", "/")
             upload_file(file_path, url, container, code, f"{folder}/{blob_name}")
@@ -302,8 +304,8 @@ class LabelTool:
         if len(self.batchSelector['values']) > 0:
             self.batchSelector.current(0)
 
-        Button(batch_frame, text="Load batch", command=self.batch_download_select).pack(side=LEFT, padx=5)
-        Button(batch_frame, text="Upload labels", command=self.upload_labels).pack(side=LEFT, padx=5)
+        Button(batch_frame, text="Download batch from server", command=self.batch_download_select).pack(side=LEFT, padx=5)
+        Button(batch_frame, text="Upload labels to server", command=self.upload_labels).pack(side=LEFT, padx=5)
 
         # image info
         image_frame = Frame(self.ctrTopPanel)
@@ -480,7 +482,9 @@ class LabelTool:
         self.tkimg = None
 
     def reload_model(self, event=None):
-        download_folder(self.config['url'], self.config['container'], self.config['code'], 'models', self.containerDir)
+        thread = threading.Thread(target=download_folder, args=(self.config['url'], self.config['container'], self.config['code'], 'models', self.containerDir))
+        thread.start()
+        thread.join()
         self.load_model()
 
     def load_model(self):
@@ -516,31 +520,32 @@ class LabelTool:
         if not batch:
             return
 
-        popup = Toplevel(root)
-        width = 100
-        height = 35
-        x = (root.winfo_screenwidth() / 2) - (width / 2)
-        y = (root.winfo_screenheight() / 2) - (height / 2)
-        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
-        popup.title("Downloading...")
-        Label(popup, text="Downloading batch...").pack(padx=5, pady=5)
-        popup.focus_set()
-        download_folder(self.config['url'], self.config['container'], self.config['code'], f"batches/{batch}", self.containerDir)
-        popup.destroy()
+        thread = threading.Thread(target=download_folder, args=(self.config['url'], self.config['container'], self.config['code'], f"batches/{batch}", self.containerDir))
+        thread.start()
+
+        messagebox.showinfo("Batch", message=f"Downloading batch {batch}...\n\nProgress bar is in the command line.")
+
+        thread.join()
+
         return
 
     def upload_labels(self, event=None):
-        popup = Toplevel(root)
-        width = 100
-        height = 35
-        x = (root.winfo_screenwidth() / 2) - (width / 2)
-        y = (root.winfo_screenheight() / 2) - (height / 2)
-        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
-        popup.title("Uploading...")
-        Label(popup, text="Uploading  labels...").pack(padx=5, pady=5)
-        popup.focus_set()
-        upload_folder(os.path.join(self.currentBatchDir, 'labels'), self.config['url'], self.config['container'], self.config['code'], 'batches/' + os.path.basename(self.currentBatchDir) + '/labels')
-        popup.destroy()
+        batch = os.path.basename(self.currentBatchDir)
+
+        labels = Tk()
+        canvas = Canvas(labels, width=200, height=200)
+        canvas.pack()
+
+        res = messagebox.askquestion('Upload labels', 'Warning, all labels from current batch will be uploaded to cloud storage, do you want to proceed?')
+        if res == 'Yes':
+            labels.destroy()
+
+            threading.Thread(target=upload_folder, args=(os.path.join(self.currentBatchDir, 'labels'), self.config['url'], self.config['container'], self.config['code'], f"batches/{batch}/labels")).start()
+
+            messagebox.showinfo("Labels", message=f"Uploading labels from batch {batch}...\n\nProgress bar is in the command line.")
+        else:
+            labels.destroy()
+
         return
 
     def load_dir(self, directory):
@@ -550,7 +555,6 @@ class LabelTool:
             return
 
         if not os.path.isdir(directory):
-            messagebox.showerror("Error!", message="The specified dir doesn't exist!")
             return
 
         self.currentBatchDir = directory
@@ -906,4 +910,5 @@ if __name__ == '__main__':
     root = Tk()
     tool = LabelTool(root)
     root.resizable(width=True, height=True)
+    root.focus_force()
     root.mainloop()
