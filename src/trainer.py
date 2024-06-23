@@ -26,13 +26,16 @@ SIZE = 256, 256
 ZOOM_RATIO = 2
 
 
-def list_folders_in_folder(local_path):
-    if not os.path.isdir(local_path) or not os.path.exists(local_path):
-        print(f"Path doesn't exist or isn't a directory: {local_path}")
+def list_folders_in_folder(local_directory):
+    if not os.path.exists(local_directory):
+        os.mkdir(local_directory)
+
+    if not os.path.isdir(local_directory):
+        print(f"Path isn't a directory: {local_directory}")
         return []
 
     try:
-        return [entry for entry in os.listdir(local_path) if os.path.isdir(os.path.join(local_path, entry))]
+        return [entry for entry in os.listdir(local_directory) if os.path.isdir(os.path.join(local_directory, entry))]
     except Exception as error:
         print(f"An error occurred: {error}")
         return []
@@ -41,15 +44,15 @@ def list_folders_in_folder(local_path):
 def list_folders_in_folder_azure(url, container, code, folder_path):
     if not url:
         print("The url is empty!")
-        return
+        return []
 
     if not container:
         print("The container is empty!")
-        return
+        return []
 
     if not code:
         print("The code is empty!")
-        return
+        return []
 
     folders = []
     blobs = list_blobs_in_folder(url, container, code, folder_path)
@@ -147,8 +150,11 @@ def download_folder(url, container, code, folder, local_directory):
         return
 
     if not os.path.exists(local_directory):
-        print(f"Folder not found: {local_directory}")
-        return
+        os.mkdir(local_directory)
+
+    if not os.path.isdir(local_directory):
+        print(f"Path isn't a directory: {local_directory}")
+        return []
 
     print(f"Downloading folder: {folder}")
 
