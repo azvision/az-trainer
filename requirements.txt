@@ -2,3 +2,4 @@ pillow==10.3.0
 ultralytics==8.2.25
 pyyaml==6.0.1
 requests==2.32.3
+tqdm==4.66.4
