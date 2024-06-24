@@ -551,21 +551,20 @@ class LabelTool:
         return
 
     def upload_labels(self, event=None):
-        batch = os.path.basename(self.currentBatchDir)
+        if not self.currentBatchDir:
+            print("No batch selected for upload.")
+            
+            messagebox.showerror('Upload failed', 'No batch selected for upload.')
 
-        labels = Tk()
-        canvas = Canvas(labels, width=200, height=200)
-        canvas.pack()
+            return
+
+        batch = os.path.basename(self.currentBatchDir)
 
         res = messagebox.askquestion('Upload labels', 'Warning, all labels from current batch will be uploaded to cloud storage, do you want to proceed?')
         if res == 'Yes':
-            labels.destroy()
-
             threading.Thread(target=upload_folder, args=(os.path.join(self.currentBatchDir, 'labels'), self.config['url'], self.config['container'], self.config['code'], f"batches/{batch}/labels")).start()
 
             messagebox.showinfo("Labels", message=f"Uploading labels from batch {batch}...\n\nProgress bar is in the command line.")
-        else:
-            labels.destroy()
 
         return
 
