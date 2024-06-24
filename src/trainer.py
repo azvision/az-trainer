@@ -120,7 +120,10 @@ def get_blob_properties(blob_url):
         return {}
 
 
-def download_blob(blob_url, local_path):
+def download_blob(blob_url, local_path, tqdm_used=False):
+    if tqdm_used:
+        print("\n")
+
     if not blob_url:
         print("The blob url is empty!")
         return
@@ -170,10 +173,13 @@ def download_folder(url, container, code, folder, local_directory):
     for blob in tqdm(list_blobs_in_folder(url, container, code, folder), desc="Downloading files"):
         local_path = os.path.join(local_directory, blob).replace('\\', '/')
         blob_url = f"{url}{container}/{blob}?{code}"
-        download_blob(blob_url, local_path)
+        download_blob(blob_url, local_path, True)
 
 
-def upload_file(file_path, url, container, code, blob_name):
+def upload_file(file_path, url, container, code, blob_name, tqdm_used=False):
+    if tqdm_used:
+        print("\n")
+
     if not os.path.exists(file_path):
         print(f"File not found: {file_path}")
         return
@@ -238,7 +244,7 @@ def upload_folder(local_folder, url, container, code, folder):
         for file_name in tqdm(files, desc="Uploading files"):
             file_path = os.path.join(base, file_name)
             blob_name = os.path.relpath(file_path, local_folder).replace("\\", "/")
-            upload_file(file_path, url, container, code, f"{folder}/{blob_name}")
+            upload_file(file_path, url, container, code, f"{folder}/{blob_name}", True)
 
 
 class LabelTool:
