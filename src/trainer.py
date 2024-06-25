@@ -121,17 +121,18 @@ def get_blob_properties(blob_url):
 
 
 def download_blob(blob_url, local_path, tqdm_used=False):
-    if tqdm_used:
-        print("\n")
-
     if not blob_url:
-        print("The blob url is empty!")
+        if not tqdm_used:
+            print("The blob url is empty!")
+
         return
 
     if os.path.exists(local_path):
         blob_last_modified = get_blob_properties(blob_url).get('last_modified')
         if blob_last_modified and blob_last_modified <= datetime.fromtimestamp(os.path.getmtime(local_path)):
-            print(f"Local file is up to date: {local_path}")
+            if not tqdm_used:
+                print(f"Local file is up to date: {local_path}")
+
             return
 
     try:
@@ -145,9 +146,11 @@ def download_blob(blob_url, local_path, tqdm_used=False):
 
         file.close()
 
-        print(f"Blob downloaded successfully and saved as {local_path}")
+        if not tqdm_used:
+            print(f"Blob downloaded successfully and saved as {local_path}")
     except Exception as error:
-        print(f"An error occurred: {error}")
+        if not tqdm_used:
+            print(f"An error occurred: {error}")
 
 
 def download_folder(url, container, code, folder, local_directory):
@@ -179,27 +182,34 @@ def download_folder(url, container, code, folder, local_directory):
 
 
 def upload_file(file_path, url, container, code, blob_name, tqdm_used=False):
-    if tqdm_used:
-        print("\n")
-
     if not os.path.exists(file_path):
-        print(f"File not found: {file_path}")
+        if not tqdm_used:
+            print(f"File not found: {file_path}")
+
         return
 
     if not url:
-        print("The url is empty!")
+        if not tqdm_used:
+            print("The url is empty!")
+
         return
 
     if not container:
-        print("The container is empty!")
+        if not tqdm_used:
+            print("The container is empty!")
+
         return
 
     if not code:
-        print("The code is empty!")
+        if not tqdm_used:
+            print("The code is empty!")
+
         return
 
     if not blob_name:
-        print("The blob name is empty!")
+        if not tqdm_used:
+            print("The blob name is empty!")
+
         return
 
     blob_url = f"{url}{container}/{blob_name}?{code}"
@@ -214,11 +224,13 @@ def upload_file(file_path, url, container, code, blob_name, tqdm_used=False):
             response = requests.put(blob_url, data=file_content, headers=headers)
             response.raise_for_status()
 
-            print(f"Uploaded file: {file_path}")
+            if not tqdm_used:
+                print(f"Uploaded file: {file_path}")
 
         file.close()
     except Exception as error:
-        print(f"An error occurred: {error}")
+        if not tqdm_used:
+            print(f"An error occurred: {error}")
 
 
 def upload_folder(local_folder, url, container, code, folder):
