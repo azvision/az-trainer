@@ -143,6 +143,8 @@ def download_blob(blob_url, local_path, tqdm_used=False):
                 if chunk:
                     file.write(chunk)
 
+        file.close()
+
         print(f"Blob downloaded successfully and saved as {local_path}")
     except Exception as error:
         print(f"An error occurred: {error}")
@@ -202,8 +204,8 @@ def upload_file(file_path, url, container, code, blob_name, tqdm_used=False):
 
     blob_url = f"{url}{container}/{blob_name}?{code}"
     try:
-        with open(file_path, 'rb') as file_data:
-            file_content = file_data.read()
+        with open(file_path, 'rb') as file:
+            file_content = file.read()
             headers = {
                 'x-ms-blob-type': 'BlockBlob',
                 'Content-Length': str(len(file_content)),
@@ -213,6 +215,8 @@ def upload_file(file_path, url, container, code, blob_name, tqdm_used=False):
             response.raise_for_status()
 
             print(f"Uploaded file: {file_path}")
+
+        file.close()
     except Exception as error:
         print(f"An error occurred: {error}")
 
@@ -443,6 +447,8 @@ class LabelTool:
             os.makedirs(os.path.dirname(self.configFile), exist_ok=True)
             with open(self.configFile, 'w') as file:
                 yaml.dump(self.config, file, default_flow_style=False)
+
+            file.close()
         except Exception as exception:
             print(f"Failed to save config: {exception}")
 
@@ -656,8 +662,8 @@ class LabelTool:
         annotation_file_path, img_width, img_height = self.get_annotations_metadata()
         results = []
         if os.path.exists(annotation_file_path):
-            with open(annotation_file_path) as f:
-                for i, line in enumerate(f):
+            with open(annotation_file_path) as file:
+                for i, line in enumerate(file):
                     tmp = line.split()
                     class_index = int(tmp[0])
                     cx = int(float(tmp[1]) * img_width)
@@ -669,6 +675,8 @@ class LabelTool:
                     x2 = cx + hw
                     y2 = cy + hh
                     results.append((x1, y1, x2, y2, class_index, False))
+
+            file.close()
         else:
             return None
 
@@ -715,6 +723,8 @@ class LabelTool:
                 height = abs(annotation['x1'] - annotation['x2']) * 1. / img_width
                 width = abs(annotation['y1'] - annotation['y2']) * 1. / img_height
                 file.write(f'{class_} {center_x} {center_y} {height} {width}\n')
+
+        file.close()
 
     def get_annotations_metadata(self):
         annotation_file_name = self.imgRootName
