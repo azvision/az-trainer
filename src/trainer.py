@@ -317,7 +317,7 @@ class LabelTool:
         batch_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
         Button(batch_frame, text="Set code", command=self.set_code).pack(side=LEFT, padx=5)
-        Button(batch_frame, text="Load model", command=self.reload_model).pack(side=LEFT, padx=5)
+        Button(batch_frame, text="Download best model from server", command=self.reload_model).pack(side=LEFT, padx=5)
 
         self.batchSelector = ttk.Combobox(batch_frame, state='readonly')
         self.batchSelector.pack(side=LEFT, padx=5)
@@ -668,14 +668,14 @@ class LabelTool:
 
     def get_predictions_from_yolo(self):
         if self.model is None:
-            return None
+            return []
 
-        rgb_img_file_path = os.path.join(self.batchDir, f"{self.imgRootName}.{self.fileNameExt}")
-        if not os.path.exists(rgb_img_file_path):
-            return None
+        rgb_img_file_path = os.path.join(self.currentBatchDir, f"{self.imgRootName}.{self.fileNameExt}")
+        if not os.path.exists(rgb_img_file_path) or os.path.isdir(rgb_img_file_path):
+            return []
 
-        predictions = self.model(rgb_img_file_path)  # predict on an image
         results = []
+        predictions = self.model(rgb_img_file_path)  # predict on an image
         for result in predictions:
             # probs = result.probs  # Probs object for classification outputs
             for box in result.boxes:
