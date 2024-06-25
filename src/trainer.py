@@ -526,9 +526,7 @@ class LabelTool:
         self.tkimg = None
 
     def reload_model(self, event=None):
-        thread = threading.Thread(target=download_folder, args=(self.config['url'], self.config['container'], self.config['code'], 'models', self.containerDir))
-        thread.start()
-        thread.join()
+        download_folder(self.config['url'], self.config['container'], self.config['code'], 'models', self.containerDir)
         self.load_model()
 
     def load_model(self):
@@ -586,9 +584,12 @@ class LabelTool:
 
         res = messagebox.askquestion('Upload labels', 'Warning, all labels from current batch will be uploaded to cloud storage, do you want to proceed?')
         if res == 'Yes':
-            threading.Thread(target=upload_folder, args=(os.path.join(self.currentBatchDir, 'labels'), self.config['url'], self.config['container'], self.config['code'], f"batches/{batch}/labels")).start()
+            thread = threading.Thread(target=upload_folder, args=(os.path.join(self.currentBatchDir, 'labels'), self.config['url'], self.config['container'], self.config['code'], f"batches/{batch}/labels"))
+            thread.start()
 
             messagebox.showinfo("Labels", message=f"Uploading labels from batch {batch}...\n\nProgress bar is in the command line.")
+
+            thread.join()
 
         return
 
