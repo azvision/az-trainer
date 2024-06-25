@@ -476,13 +476,13 @@ class LabelTool:
         self.containerDir = os.path.join(self.dataDir, self.config['container'])
         self.modelDir = os.path.join(self.containerDir, 'models')
         self.batchDir = os.path.join(self.containerDir, 'batches')
-        self.unload()
+        self.unload(True)
         self.batchList = list_folders_in_folder_azure(self.config['url'], self.config['container'], self.config['code'], "batches")
         if len(self.batchList) > 0:
             self.batchSelector['values'] = self.batchList
             self.batchSelector.current(0)
 
-    def unload(self):
+    def unload(self, full=False):
         self.del_all_bboxes()
         self.mainPanel.delete(self.tkimg)
         self.selectedBbox = 0
@@ -497,9 +497,12 @@ class LabelTool:
         self.total = 0
         self.imgRootName = None
         self.imageName = ''
-        self.batchList = []
-        self.batchSelector['values'] = [""]
-        self.batchSelector.current(0)
+
+        if full:
+            self.batchList = []
+            self.batchSelector['values'] = [""]
+            self.batchSelector.current(0)
+
         self.labelsDir = None
         self.labelFileName = ''
         self.tkimg = None
@@ -531,6 +534,7 @@ class LabelTool:
         if not batch:
             return
 
+        self.unload()
         self.load_dir(os.path.join(self.batchDir, batch))
 
     def download_batch(self, event=None):
@@ -625,7 +629,8 @@ class LabelTool:
 
         # load labels
         xyxy_list = self.get_boxes_from_file()
-        if xyxy_list is None:
+        should_save = xyxy_list is None
+        if should_save:
             xyxy_list = self.get_predictions_from_yolo()
 
         if xyxy_list is not None:
@@ -638,6 +643,9 @@ class LabelTool:
                     self.selectedBbox = 0
 
                 first = False
+
+            if should_save:
+                self.save_image()
 
     def get_bbox_string(self, x1, y1, x2, y2, class_index, selected):
         bbox_id = self.create_bbox(x1, y1, x2, y2, COLORS[class_index], selected)
