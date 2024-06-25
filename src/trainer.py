@@ -668,11 +668,11 @@ class LabelTool:
 
     def get_predictions_from_yolo(self):
         if self.model is None:
-            return []
+            return None
 
         rgb_img_file_path = os.path.join(self.currentBatchDir, f"{self.imgRootName}.{self.fileNameExt}")
         if not os.path.exists(rgb_img_file_path) or os.path.isdir(rgb_img_file_path):
-            return []
+            return None
 
         results = []
         predictions = self.model(rgb_img_file_path)  # predict on an image
