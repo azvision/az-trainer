@@ -625,7 +625,7 @@ class LabelTool:
 
         # load labels
         xyxy_list = self.get_boxes_from_file()
-        if xyxy_list is None and self.model is not None:
+        if xyxy_list is None:
             xyxy_list = self.get_predictions_from_yolo()
 
         if xyxy_list is not None:
@@ -670,7 +670,7 @@ class LabelTool:
         if self.model is None:
             return None
 
-        rgb_img_file_path = os.path.join(self.batchDir, f"{self.imgRootName}.f{self.fileNameExt}")
+        rgb_img_file_path = os.path.join(self.batchDir, f"{self.imgRootName}.{self.fileNameExt}")
         if not os.path.exists(rgb_img_file_path):
             return None
 
