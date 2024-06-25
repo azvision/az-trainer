@@ -325,6 +325,8 @@ class LabelTool:
         if len(self.batchSelector['values']) > 0:
             self.batchSelector.current(0)
 
+        self.batchSelector.bind("<<ComboboxSelected>>", self.batch_select)
+
         Button(batch_frame, text="Download batch from server", command=self.batch_download_select).pack(side=LEFT, padx=5)
         Button(batch_frame, text="Upload labels to server", command=self.upload_labels).pack(side=LEFT, padx=5)
 
