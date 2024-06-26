@@ -1,16 +1,21 @@
 import ast
 import pathlib
-import zipfile
+import re
+import threading
+from datetime import datetime
 from tkinter import END, LEFT, N, S, W, E, StringVar, Tk
-from tkinter import filedialog, Button, Canvas, Entry, Frame, Label, Listbox, Toplevel
+from tkinter import Button, Canvas, Entry, Frame, Label, Listbox, Toplevel
 from tkinter import messagebox
 from tkinter import ttk
+from xml.etree import ElementTree
 
+import requests
 import yaml
 from PIL import Image, ImageTk
 import os
 import glob
 
+from tqdm import tqdm
 from ultralytics import YOLO
 
 # colors for the bboxes
@@ -21,6 +26,243 @@ SIZE = 256, 256
 ZOOM_RATIO = 2
 
 
+def list_folders_in_folder(local_directory):
+    if not os.path.exists(local_directory):
+        os.mkdir(local_directory)
+
+    if not os.path.isdir(local_directory):
+        print(f"Path isn't a directory: {local_directory}")
+        return []
+
+    try:
+        return [entry for entry in os.listdir(local_directory) if os.path.isdir(os.path.join(local_directory, entry))]
+    except Exception as error:
+        print(f"An error occurred: {error}")
+        return []
+
+
+def list_folders_in_folder_azure(url, container, code, folder_path):
+    if not url:
+        print("The url is empty!")
+        return []
+
+    if not container:
+        print("The container is empty!")
+        return []
+
+    if not code:
+        print("The code is empty!")
+        return []
+
+    if folder_path and not folder_path.endswith('/'):
+        folder_path += '/'
+
+    try:
+        list_url = f"{url}{container}?restype=container&comp=list&prefix={folder_path}&delimiter=/&{code}"
+        response = requests.get(list_url)
+        response.raise_for_status()
+
+        folders = []
+        for blob_prefix in ElementTree.fromstring(response.content).findall('.//BlobPrefix'):
+            name_element = blob_prefix.find('Name')
+            if name_element is not None and name_element.text:
+                prefix_text = name_element.text
+                if prefix_text != folder_path.rstrip('/'):
+                    subfolder = prefix_text[len(folder_path):].rstrip('/')
+                    if subfolder:
+                        folders.append(subfolder)
+
+        return folders
+    except Exception as error:
+        print(f"An error occurred: {error}")
+        return []
+
+
+def list_blobs_in_folder(url, container, code, folder_path):
+    if not url:
+        print("The url is empty!")
+        return
+
+    if not container:
+        print("The container is empty!")
+        return
+
+    if not code:
+        print("The code is empty!")
+        return
+
+    if not folder_path:
+        print("The folder path is empty!")
+        return
+
+    try:
+        url = f"{url}{container}?restype=container&comp=list&prefix={folder_path}&{code}"
+        response = requests.get(url)
+        response.raise_for_status()
+        blobs = [blob.find('Name').text for blob in ElementTree.fromstring(response.content).findall('.//Blob')]
+        return blobs
+    except Exception as error:
+        print(f"An error occurred: {error}")
+        return []
+
+
+def get_blob_properties(blob_url):
+    if not blob_url:
+        print("The blob url is empty!")
+        return
+
+    try:
+        response = requests.head(blob_url)
+        response.raise_for_status()
+        return {'last_modified': datetime.strptime(response.headers['Last-Modified'], '%a, %d %b %Y %H:%M:%S %Z')}
+    except Exception as error:
+        print(f"An error occurred: {error}")
+        return {}
+
+
+def download_blob(blob_url, local_path, tqdm_used=False):
+    if not blob_url:
+        if not tqdm_used:
+            print("The blob url is empty!")
+
+        return
+
+    if os.path.exists(local_path):
+        blob_last_modified = get_blob_properties(blob_url).get('last_modified')
+        if blob_last_modified and blob_last_modified <= datetime.fromtimestamp(os.path.getmtime(local_path)):
+            if not tqdm_used:
+                print(f"Local file is up to date: {local_path}")
+
+            return
+
+    try:
+        response = requests.get(blob_url, stream=True)
+        response.raise_for_status()
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        with open(local_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    file.write(chunk)
+
+        file.close()
+
+        if not tqdm_used:
+            print(f"Blob downloaded successfully and saved as {local_path}")
+    except Exception as error:
+        if not tqdm_used:
+            print(f"An error occurred: {error}")
+
+
+def download_folder(url, container, code, folder, local_directory):
+    if not url:
+        print("The url is empty!")
+        return
+
+    if not container:
+        print("The container is empty!")
+        return
+
+    if not code:
+        print("The code is empty!")
+        return
+
+    if not os.path.exists(local_directory):
+        os.mkdir(local_directory)
+
+    if not os.path.isdir(local_directory):
+        print(f"Path isn't a directory: {local_directory}")
+        return []
+
+    print(f"Downloading folder: {folder}")
+
+    for blob in tqdm(list_blobs_in_folder(url, container, code, folder), desc="Downloading files"):
+        local_path = os.path.join(local_directory, blob).replace('\\', '/')
+        blob_url = f"{url}{container}/{blob}?{code}"
+        download_blob(blob_url, local_path, True)
+
+
+def upload_file(file_path, url, container, code, blob_name, tqdm_used=False):
+    if not os.path.exists(file_path):
+        if not tqdm_used:
+            print(f"File not found: {file_path}")
+
+        return
+
+    if not url:
+        if not tqdm_used:
+            print("The url is empty!")
+
+        return
+
+    if not container:
+        if not tqdm_used:
+            print("The container is empty!")
+
+        return
+
+    if not code:
+        if not tqdm_used:
+            print("The code is empty!")
+
+        return
+
+    if not blob_name:
+        if not tqdm_used:
+            print("The blob name is empty!")
+
+        return
+
+    blob_url = f"{url}{container}/{blob_name}?{code}"
+    try:
+        with open(file_path, 'rb') as file:
+            file_content = file.read()
+            headers = {
+                'x-ms-blob-type': 'BlockBlob',
+                'Content-Length': str(len(file_content)),
+            }
+
+            response = requests.put(blob_url, data=file_content, headers=headers)
+            response.raise_for_status()
+
+            if not tqdm_used:
+                print(f"Uploaded file: {file_path}")
+
+        file.close()
+    except Exception as error:
+        if not tqdm_used:
+            print(f"An error occurred: {error}")
+
+
+def upload_folder(local_folder, url, container, code, folder):
+    if not local_folder or not os.path.isdir(local_folder):
+        print("The directory doesn't exist or is empty!")
+        return
+
+    if not url:
+        print("The url is empty!")
+        return
+
+    if not container:
+        print("The container is empty!")
+        return
+
+    if not code:
+        print("The code is empty!")
+        return
+
+    if not folder:
+        print("The folder to upload to is not specified!")
+        return
+
+    print(f"Uploading folder: {folder}")
+
+    for base, _, files in os.walk(local_folder):
+        for file_name in tqdm(files, desc="Uploading files"):
+            file_path = os.path.join(base, file_name)
+            blob_name = os.path.relpath(file_path, local_folder).replace("\\", "/")
+            upload_file(file_path, url, container, code, f"{folder}/{blob_name}", True)
+
+
 class LabelTool:
     def __init__(self, master):
         # set up the main frame
@@ -28,40 +270,48 @@ class LabelTool:
         self.rootPanel.title("AZ Vision - Trainer")
         self.rootPanel.resizable(width=False, height=False)
 
-        # initialize global state
         self.baseDir = os.path.dirname(os.path.dirname(__file__))
-        self.configFile = os.path.join(self.baseDir, 'config', 'config.yml')
+        self.dataDir = os.path.join(self.baseDir, 'data')
+        self.this_repo = str(pathlib.Path(__file__).parent.resolve().parent)
+        self.configFile = os.path.join(self.dataDir, 'config', 'config.yml')
+
+        # initialize global state
+        self.config = {'url': "", 'container': "", 'code': "", 'next_box_after_class_set': True}
         if os.path.exists(self.configFile):
             with open(self.configFile, 'r') as file:
-                config = yaml.safe_load(file)
-                self.nextBboxAfterClass = config['next_box_after_class_set']
-                file.close()
-        else:
-            self.nextBboxAfterClass = True
+                loaded_config = yaml.safe_load(file)
+                if loaded_config is not None:
+                    self.config = loaded_config
+
+            file.close()
+
+        self.containerDir = os.path.join(self.dataDir, self.config['container'])
+        self.modelDir = os.path.join(self.containerDir, 'models')
+        self.batchDir = os.path.join(self.containerDir, 'batches')
 
         self.model = None
-        self.imageDir = ''
+        self.currentBatchDir = ''
         self.imageList = []
         self.cur = 0
         self.total = 0
         self.imgRootName = None
         self.imageName = ''
+        self.batchList = list_folders_in_folder_azure(self.config['url'], self.config['container'], self.config['code'], "batches")
         self.labelsDir = None
         self.labelFileName = ''
         self.tkimg = None
         self.currentLabelClass = ''
-        self.classesList = []
+        self.classesList = [
+            "generic",
+            "woman",
+            "man",
+            "child",
+            "stroller",
+            "wheelchair"
+        ]
 
-        self.classCandidateFile = os.path.join(self.baseDir, 'data', 'classes.txt')
-        self.annotations_batch = "batch-003"
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
-
-        self.azDir = os.path.join('C:\\', 'azvision')
-        self.imgPath = os.path.join(self.azDir, 'batches')
-        self.checkedBatchesPath = os.path.join(self.azDir, 'checked-batches')
-        self.this_repo = str(pathlib.Path(__file__).parent.resolve().parent)
-        self.default_images_filepath = os.path.join(self.imgPath, self.annotations_batch)
 
         # initialize mouse state
         self.STATE = {}
@@ -78,23 +328,23 @@ class LabelTool:
         self.ctrTopPanel = Frame(self.rootPanel)
         self.ctrTopPanel.grid(row=0, column=0, sticky=W + N, padx=5)
 
-        # file
-        file_frame = Frame(self.ctrTopPanel)
-        file_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
+        # batch
+        batch_frame = Frame(self.ctrTopPanel)
+        batch_frame.grid(row=0, column=0, ipady=5, sticky=W + N)
 
-        # file image dir entry
-        Button(file_frame, text="Img folder", command=self.select_src_dir).pack(side=LEFT)
-        self.svSourcePath = StringVar()
-        Entry(file_frame, textvariable=self.svSourcePath, width=70).pack(side=LEFT, padx=5)
-        self.svSourcePath.set(self.default_images_filepath)
+        Button(batch_frame, text="Set code", command=self.set_code).pack(side=LEFT, padx=5)
+        Button(batch_frame, text="Download best model from server", command=self.reload_model).pack(side=LEFT, padx=5)
 
-        # button load dir
-        self.bLoad = Button(file_frame, text="Load Dir", command=self.load_dir)
-        self.bLoad.pack(side=LEFT, padx=5)
+        self.batchSelector = ttk.Combobox(batch_frame, state='readonly')
+        self.batchSelector.pack(side=LEFT, padx=5)
+        self.batchSelector['values'] = self.batchList if self.batchList else [""]
+        if len(self.batchSelector['values']) > 0:
+            self.batchSelector.current(0)
 
-        # export batch
-        self.bExport = Button(file_frame, text="Export batch", command=self.export_batch)
-        self.bExport.pack(side=LEFT, padx=5)
+        self.batchSelector.bind("<<ComboboxSelected>>", self.batch_select)
+
+        Button(batch_frame, text="Download batch from server", command=self.batch_download_select).pack(side=LEFT, padx=5)
+        Button(batch_frame, text="Upload labels to server", command=self.upload_labels).pack(side=LEFT, padx=5)
 
         # image info
         image_frame = Frame(self.ctrTopPanel)
@@ -111,7 +361,7 @@ class LabelTool:
         self.mainPanel.bind("<Motion>", self.mouse_move)
 
         self.rootPanel.bind("<Escape>", self.cancel_bbox)  # press Escape to cancel current bbox
-        self.rootPanel.bind("c", self.cancel_bbox)
+        self.rootPanel.bind("c", self.cancel_bbox) # press 'c' to cancel creation
         self.rootPanel.bind("a", self.prev_image)  # press 'a' to go backward
         self.rootPanel.bind("<Left>", self.prev_image)  # press '<-' to go backward
         self.rootPanel.bind("d", self.next_image)  # press 'd' to go forward
@@ -127,10 +377,6 @@ class LabelTool:
         self.className = StringVar()
         self.classCandidate = ttk.Combobox(self.ctrClassPanel, state='readonly', textvariable=self.className)
         self.classCandidate.grid(row=1, column=0, sticky=W + N)
-        if os.path.exists(self.classCandidateFile):
-            with open(self.classCandidateFile) as cf:
-                for line in cf.readlines():
-                    self.classesList.append(line.strip('\n'))
 
         numbered_classes_list = self.classesList.copy()
         for class_id in range(len(numbered_classes_list)):
@@ -145,7 +391,7 @@ class LabelTool:
         next_bbox_frame.grid(row=2, column=0, sticky=W + N)
         next_bbox_label = Label(next_bbox_frame, text='Next box on set:')
         next_bbox_label.pack(side=LEFT)
-        next_bbox_text = 'ON' if self.nextBboxAfterClass else 'OFF'
+        next_bbox_text = 'ON' if self.config['next_box_after_class_set'] else 'OFF'
         self.bNextBboxAfterClass = Button(next_bbox_frame, text=next_bbox_text, command=self.toggle_next_bbox_after_class)
         self.bNextBboxAfterClass.pack(side=LEFT)
 
@@ -157,7 +403,9 @@ class LabelTool:
         self.annotationsList.grid(row=7, column=0, columnspan=2, sticky=N + S + W)
         self.annotationsList.bind("<<ListboxSelect>>", self.on_listbox_select)
         self.annotationsList.bind("<Up>", self.arrow_up)
+        self.annotationsList.bind("w", self.arrow_up)
         self.annotationsList.bind("<Down>", self.arrow_down)
+        self.annotationsList.bind("s", self.arrow_down)
         self.annotationsList.bind("1", self.set_class)  # press to select class
         self.annotationsList.bind("2", self.set_class)  # press to select class
         self.annotationsList.bind("3", self.set_class)  # press to select class
@@ -201,27 +449,169 @@ class LabelTool:
         self.rootPanel.columnconfigure(5, weight=1)
         self.rootPanel.rowconfigure(6, weight=1)
 
-    def select_src_dir(self):
-        path = filedialog.askdirectory(title="Select image source folder", initialdir=self.svSourcePath.get())
-        self.svSourcePath.set(path)
+        #  loading
 
-    def load_dir(self):
-        self.rootPanel.focus()
+        self.reload_model()
+        self.batch_select()
 
-        self.imageDir = self.svSourcePath.get()
-        if not os.path.isdir(self.imageDir):
-            messagebox.showerror("Error!", message="The specified dir doesn't exist!")
+    def save_config(self):
+        try:
+            os.makedirs(os.path.dirname(self.configFile), exist_ok=True)
+            with open(self.configFile, 'w') as file:
+                yaml.dump(self.config, file, default_flow_style=False)
+
+            file.close()
+        except Exception as exception:
+            print(f"Failed to save config: {exception}")
+
+    def set_code(self):
+        popup = Toplevel(root)
+        width = 250
+        height = 75
+        x = (root.winfo_screenwidth() / 2) - (width / 2)
+        y = (root.winfo_screenheight() / 2) - (height / 2)
+        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
+        popup.title("Set code")
+        popup_frame = Frame(popup)
+        popup_frame.pack(pady=10)
+        entry = Entry(popup_frame, width=25)
+        entry.pack()
+        button_frame = Frame(popup_frame)
+        button_frame.pack(pady=5)
+        Button(button_frame, text="Apply", command=lambda: [self.apply_code(entry.get()), popup.destroy()]).grid(row=0, column=0)
+        Button(button_frame, text="Cancel", command=lambda: [popup.destroy()]).grid(row=0, column=1, padx=15)
+        popup.focus_set()
+        return
+
+    def apply_code(self, new_code):
+        url_search = re.search(r"(https://[^/]+/)", new_code)
+        self.config['url'] = url_search.group(1) if url_search else ""
+        container_search = re.search(r"https://[^/]+/([^?]+)\?sv=", new_code)
+        self.config['container'] = container_search.group(1) if container_search else ""
+        code_search = re.search(r"\?sv=(.+)", new_code)
+        self.config['code'] = "sv=" + code_search.group(1) if code_search else ""
+        self.save_config()
+        self.containerDir = os.path.join(self.dataDir, self.config['container'])
+        self.modelDir = os.path.join(self.containerDir, 'models')
+        self.batchDir = os.path.join(self.containerDir, 'batches')
+        self.unload(True)
+        self.batchList = list_folders_in_folder_azure(self.config['url'], self.config['container'], self.config['code'], "batches")
+        if len(self.batchList) > 0:
+            self.batchSelector['values'] = self.batchList
+            self.batchSelector.current(0)
+
+    def unload(self, full=False):
+        self.del_all_bboxes()
+        self.mainPanel.delete(self.tkimg)
+        self.selectedBbox = 0
+        self.STATE = {}
+        self.bboxIdList = []
+        self.curBBoxId = None
+        self.horizontalLine = None
+        self.verticalLine = None
+        self.currentBatchDir = ''
+        self.imageList = []
+        self.cur = 0
+        self.total = 0
+        self.imgRootName = None
+        self.imageName = ''
+
+        if full:
+            self.batchList = []
+            self.batchSelector['values'] = [""]
+            self.batchSelector.current(0)
+
+        self.labelsDir = None
+        self.labelFileName = ''
+        self.tkimg = None
+
+    def reload_model(self, event=None):
+        download_folder(self.config['url'], self.config['container'], self.config['code'], 'models', self.containerDir)
+        self.load_model()
+
+    def load_model(self):
+        file = os.path.join(self.modelDir, 'best.pt')
+        if os.path.exists(file):
+            self.model = YOLO(file)
+        else:
+            self.model = None
+
+    def batch_download_select(self, event=None):
+        self.download_batch()
+        self.batch_select()
+
+    def batch_select(self, event=None):
+        index = self.batchSelector.current()
+        if index < 0 or index >= len(self.batchList):
             return
 
-        self.labelsDir = os.path.join(self.imageDir, 'labels')
+        batch = self.batchList[index]
+
+        if not batch:
+            return
+
+        self.unload()
+        self.load_dir(os.path.join(self.batchDir, batch))
+
+    def download_batch(self, event=None):
+        index = self.batchSelector.current()
+        if index < 0 or index >= len(self.batchList):
+            return
+
+        batch = self.batchList[index]
+
+        if not batch:
+            return
+
+        thread = threading.Thread(target=download_folder, args=(self.config['url'], self.config['container'], self.config['code'], f"batches/{batch}", self.containerDir))
+        thread.start()
+
+        messagebox.showinfo("Batch", message=f"Downloading batch {batch}...\n\nProgress bar is in the command line.")
+
+        thread.join()
+
+        return
+
+    def upload_labels(self, event=None):
+        if not self.currentBatchDir:
+            print("No batch selected for upload.")
+            
+            messagebox.showerror('Upload failed', 'No batch selected for upload.')
+
+            return
+
+        batch = os.path.basename(self.currentBatchDir)
+
+        res = messagebox.askquestion('Upload labels', 'Warning, all labels from current batch will be uploaded to cloud storage, do you want to proceed?')
+        if res == 'Yes':
+            thread = threading.Thread(target=upload_folder, args=(os.path.join(self.currentBatchDir, 'labels'), self.config['url'], self.config['container'], self.config['code'], f"batches/{batch}/labels"))
+            thread.start()
+
+            messagebox.showinfo("Labels", message=f"Uploading labels from batch {batch}...\n\nProgress bar is in the command line.")
+
+            thread.join()
+
+        return
+
+    def load_dir(self, directory):
+        self.rootPanel.focus()
+
+        if not directory:
+            return
+
+        if not os.path.isdir(directory):
+            return
+
+        self.currentBatchDir = directory
+
+        self.labelsDir = os.path.join(self.currentBatchDir, 'labels')
         if not os.path.isdir(self.labelsDir):
             os.makedirs(self.labelsDir, exist_ok=True)
 
-        filelist = glob.glob(os.path.join(self.imageDir, "*." + self.fileNameExt))
-        filelist = [f.split("\\")[-1] for f in filelist]  # in form of filename
-        filelist = [os.path.splitext(f)[0] for f in filelist]  # remove extension
-        self.imageList = []  # resets the list because the program gets in a loop after loading a new directory (after one has already been loaded).
-        self.imageList.extend(filelist)
+        filelist = glob.glob(os.path.join(self.currentBatchDir, f"*.{self.fileNameExt}"))
+        filelist = [file.split("\\")[-1] for file in filelist]  # in form of filename
+        filelist = [os.path.splitext(file)[0] for file in filelist]  # remove extension
+        self.imageList = filelist.copy()
 
         if len(self.imageList) == 0:
             print('No .jpg images found in the specified dir!')
@@ -232,39 +622,8 @@ class LabelTool:
         self.total = len(self.imageList)
 
         # Load a model
-        self.model = YOLO(os.path.join(self.this_repo, "models", "best.pt"))
 
         self.load_image()
-
-        self.annotationsList.focus_set()
-
-    def export_batch(self):
-        if self.labelsDir is None:
-            return
-
-        if not os.path.exists(self.checkedBatchesPath):
-            os.makedirs(self.checkedBatchesPath, exist_ok=True)
-
-        zip_file = self.imageDir + '.zip'
-
-        with zipfile.ZipFile(zip_file,  'w') as zip_object:
-            for folder_name, sub_folders, file_names in os.walk(self.labelsDir):
-                for filename in file_names:
-                    zip_object.write(str(os.path.join(folder_name, filename)), os.path.join('labels', filename))
-
-        popup = Toplevel(root)
-        width = 350
-        height = 75
-        x = (root.winfo_screenwidth() / 2) - (width / 2)
-        y = (root.winfo_screenheight() / 2) - (height / 2)
-        popup.geometry('%dx%d+%d+%d' % (width, height, x, y))
-        popup.title("Batch Exported")
-        Label(popup, text="Batch exported as: " + zip_file).pack(pady=5)
-        Button(popup, text="OK", command=popup.destroy).pack(pady=5)
-        # TODO: Destroy on enter key
-        popup.focus_set()
-
-        print("Exported currently loaded batch as a zip file: " + zip_file)
 
         self.annotationsList.focus_set()
 
@@ -274,7 +633,7 @@ class LabelTool:
 
         # load image
         self.imgRootName = self.imageList[self.cur - 1]
-        img_file_path = os.path.join(self.imageDir, self.imgRootName + "." + self.fileNameExt)
+        img_file_path = os.path.join(self.currentBatchDir, f"{self.imgRootName}.{self.fileNameExt}")
         self.tkimg = self.load_img_from_disk(img_file_path)
         img_width = max(self.tkimg.width() * ZOOM_RATIO, 10)
         img_height = max(self.tkimg.height() * ZOOM_RATIO, 10)
@@ -289,17 +648,23 @@ class LabelTool:
 
         # load labels
         xyxy_list = self.get_boxes_from_file()
-        if xyxy_list is None:
+        should_save = xyxy_list is None
+        if should_save:
             xyxy_list = self.get_predictions_from_yolo()
 
-        first = True
-        for x1, y1, x2, y2, classIndex, selected in xyxy_list:
-            box_string = self.get_bbox_string(x1, y1, x2, y2, classIndex, True if first else selected)
-            self.annotationsList.insert(END, box_string)
-            self.annotationsList.itemconfig(END, {'fg': COLORS[classIndex]})
-            if first:
-                self.selectedBbox = 0
-            first = False
+        if xyxy_list is not None:
+            first = True
+            for x1, y1, x2, y2, classIndex, selected in xyxy_list:
+                box_string = self.get_bbox_string(x1, y1, x2, y2, classIndex, True if first else selected)
+                self.annotationsList.insert(END, box_string)
+                self.annotationsList.itemconfig(END, {'fg': COLORS[classIndex]})
+                if first:
+                    self.selectedBbox = 0
+
+                first = False
+
+            if should_save:
+                self.save_image()
 
     def get_bbox_string(self, x1, y1, x2, y2, class_index, selected):
         bbox_id = self.create_bbox(x1, y1, x2, y2, COLORS[class_index], selected)
@@ -310,8 +675,8 @@ class LabelTool:
         annotation_file_path, img_width, img_height = self.get_annotations_metadata()
         results = []
         if os.path.exists(annotation_file_path):
-            with open(annotation_file_path) as f:
-                for i, line in enumerate(f):
+            with open(annotation_file_path) as file:
+                for i, line in enumerate(file):
                     tmp = line.split()
                     class_index = int(tmp[0])
                     cx = int(float(tmp[1]) * img_width)
@@ -323,15 +688,23 @@ class LabelTool:
                     x2 = cx + hw
                     y2 = cy + hh
                     results.append((x1, y1, x2, y2, class_index, False))
+
+            file.close()
         else:
             return None
 
         return results
 
     def get_predictions_from_yolo(self):
-        rgb_img_file_path = os.path.join(self.imageDir, self.imgRootName + "." + self.fileNameExt)
-        predictions = self.model(rgb_img_file_path)  # predict on an image
+        if self.model is None:
+            return None
+
+        rgb_img_file_path = os.path.join(self.currentBatchDir, f"{self.imgRootName}.{self.fileNameExt}")
+        if not os.path.exists(rgb_img_file_path) or os.path.isdir(rgb_img_file_path):
+            return None
+
         results = []
+        predictions = self.model(rgb_img_file_path)  # predict on an image
         for result in predictions:
             # probs = result.probs  # Probs object for classification outputs
             for box in result.boxes:
@@ -364,9 +737,11 @@ class LabelTool:
                 width = abs(annotation['y1'] - annotation['y2']) * 1. / img_height
                 file.write(f'{class_} {center_x} {center_y} {height} {width}\n')
 
+        file.close()
+
     def get_annotations_metadata(self):
         annotation_file_name = self.imgRootName
-        annotation_file_path = os.path.join(self.labelsDir, annotation_file_name + ".txt")
+        annotation_file_path = os.path.join(self.labelsDir, f"{annotation_file_name}.txt")
         img_width, img_height = self.tkimg.width(), self.tkimg.height()
         return annotation_file_path, img_width, img_height
 
@@ -396,13 +771,11 @@ class LabelTool:
             self.render_boxes()
 
     def toggle_next_bbox_after_class(self):
-        self.nextBboxAfterClass = not self.nextBboxAfterClass
-        new_text = "ON" if self.nextBboxAfterClass else "OFF"
+        self.config['next_box_after_class_set'] = not self.config['next_box_after_class_set']
+        self.config['next_box_after_class_set'] = self.config['next_box_after_class_set']
+        new_text = "ON" if self.config['next_box_after_class_set'] else "OFF"
         self.bNextBboxAfterClass.config(text=new_text)
-        with open(self.configFile, 'w') as file:
-            yaml.dump(dict(next_box_after_class_set=self.nextBboxAfterClass), file)
-
-        file.close()
+        self.save_config()
 
     def create_bbox(self, x1, y1, x2, y2, color=COLORS[0], selected=False):
         rectangle_width = 2 if selected else 1
@@ -506,7 +879,7 @@ class LabelTool:
                     self.annotationsList.itemconfig(idx, {'fg': COLORS[target_class_index]})
             idx += 1
 
-        if self.nextBboxAfterClass:
+        if self.config['next_box_after_class_set']:
             self.arrow_down()
 
         self.render_boxes()
@@ -590,4 +963,5 @@ if __name__ == '__main__':
     root = Tk()
     tool = LabelTool(root)
     root.resizable(width=True, height=True)
+    root.focus_force()
     root.mainloop()
