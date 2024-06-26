@@ -575,15 +575,13 @@ class LabelTool:
     def upload_labels(self, event=None):
         if not self.currentBatchDir:
             print("No batch selected for upload.")
-            
             messagebox.showerror('Upload failed', 'No batch selected for upload.')
-
             return
 
         batch = os.path.basename(self.currentBatchDir)
 
         res = messagebox.askquestion('Upload labels', 'Warning, all labels from current batch will be uploaded to cloud storage, do you want to proceed?')
-        if res == 'Yes':
+        if res.lower() == 'yes':
             thread = threading.Thread(target=upload_folder, args=(os.path.join(self.currentBatchDir, 'labels'), self.config['url'], self.config['container'], self.config['code'], f"batches/{batch}/labels"))
             thread.start()
 
