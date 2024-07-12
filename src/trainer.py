@@ -661,9 +661,12 @@ class LabelTool:
 
         # load labels
         xyxy_list = self.get_boxes_from_file()
+        print(f'Loaded labels from file: "{xyxy_list}"')
         should_save = xyxy_list is None
         if should_save:
+            print(f'Inferencing using YOLO...')
             xyxy_list = self.get_predictions_from_yolo()
+            print(f'Loaded labels using YOLO: "{xyxy_list}"')
 
         if xyxy_list is not None:
             first = True
