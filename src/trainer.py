@@ -618,6 +618,7 @@ class LabelTool:
         self.currentBatchDir = directory
 
         self.labelsDir = os.path.join(self.currentBatchDir, 'labels')
+        print(f'Labels directory: {self.labelsDir}')
         if not os.path.isdir(self.labelsDir):
             os.makedirs(self.labelsDir, exist_ok=True)
 
