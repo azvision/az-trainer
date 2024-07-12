@@ -751,6 +751,7 @@ class LabelTool:
 
         annotation_file_path, img_width, img_height = self.get_annotations_metadata()
         annotations = self.annotationsList.get(0, END)
+        print(f'Saving {len(annotations)} label(s) in: {annotation_file_path}.')
         with open(annotation_file_path, 'w') as file:
             for annotationListItem in annotations:
                 annotation = ast.literal_eval(annotationListItem)
