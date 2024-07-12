@@ -19,8 +19,7 @@ from tqdm import tqdm
 from ultralytics import YOLO
 
 # colors for the bboxes
-COLORS = ['red', 'pink', 'blue', 'green', 'black', 'cyan']
-# COLORS = ['darkred', 'maroon', 'darkblue', 'darkgreen', 'black', 'cyan']
+COLORS = ['red', 'blue', 'green', 'black', 'cyan', 'pink', 'darkgreen', 'cyan', 'darkblue']
 # image sizes for the examples
 SIZE = 256, 256
 ZOOM_RATIO = 2
@@ -127,13 +126,13 @@ def download_blob(blob_url, local_path, tqdm_used=False):
 
         return
 
-    if os.path.exists(local_path):
-        blob_last_modified = get_blob_properties(blob_url).get('last_modified')
-        if blob_last_modified and blob_last_modified <= datetime.fromtimestamp(os.path.getmtime(local_path)):
-            if not tqdm_used:
-                print(f"Local file is up to date: {local_path}")
-
-            return
+    # download always
+    # if os.path.exists(local_path):
+    #     blob_last_modified = get_blob_properties(blob_url).get('last_modified')
+    #     if blob_last_modified and blob_last_modified <= datetime.fromtimestamp(os.path.getmtime(local_path)):
+    #         if not tqdm_used:
+    #             print(f"Local file is up to date: {local_path}")
+    #         return
 
     try:
         response = requests.get(blob_url, stream=True)
@@ -301,14 +300,8 @@ class LabelTool:
         self.labelFileName = ''
         self.tkimg = None
         self.currentLabelClass = ''
-        self.classesList = [
-            "generic",
-            "woman",
-            "man",
-            "child",
-            "stroller",
-            "wheelchair"
-        ]
+        self.classesList = {0: "generic"}
+        self.yolo_prediction_classes = {0: "generic"}
 
         self.fileNameExt = "jpg"
         self.selectedBbox = 0
@@ -361,7 +354,7 @@ class LabelTool:
         self.mainPanel.bind("<Motion>", self.mouse_move)
 
         self.rootPanel.bind("<Escape>", self.cancel_bbox)  # press Escape to cancel current bbox
-        self.rootPanel.bind("c", self.cancel_bbox) # press 'c' to cancel creation
+        self.rootPanel.bind("c", self.cancel_bbox)  # press 'c' to cancel creation
         self.rootPanel.bind("a", self.prev_image)  # press 'a' to go backward
         self.rootPanel.bind("<Left>", self.prev_image)  # press '<-' to go backward
         self.rootPanel.bind("d", self.next_image)  # press 'd' to go forward
@@ -377,15 +370,6 @@ class LabelTool:
         self.className = StringVar()
         self.classCandidate = ttk.Combobox(self.ctrClassPanel, state='readonly', textvariable=self.className)
         self.classCandidate.grid(row=1, column=0, sticky=W + N)
-
-        numbered_classes_list = self.classesList.copy()
-        for class_id in range(len(numbered_classes_list)):
-            numbered_classes_list[class_id] = numbered_classes_list[class_id] + ' (' + str(class_id + 1) + ')'
-
-        self.classCandidate['values'] = numbered_classes_list
-        self.classCandidate.current(0)
-        self.class_on_create()
-        self.classCandidate.bind("<<ComboboxSelected>>", self.class_on_create)
 
         next_bbox_frame = Frame(self.ctrClassPanel)
         next_bbox_frame.grid(row=2, column=0, sticky=W + N)
@@ -530,11 +514,42 @@ class LabelTool:
         self.load_model()
 
     def load_model(self):
-        file = os.path.join(self.modelDir, 'best.pt')
-        if os.path.exists(file):
-            self.model = YOLO(file)
+        # Get a list of all .pt files in modelDir
+        pt_files = glob.glob(os.path.join(self.modelDir, '*.pt'))
+
+        # Check if there are any .pt files
+        if pt_files:
+            # Get the latest .pt file based on modification time
+            latest_file = max(pt_files, key=os.path.getmtime)
+            self.model = YOLO(latest_file)
         else:
             self.model = None
+
+        self.classesList = self.load_classes_from_file('names')
+        self.yolo_prediction_classes = self.load_classes_from_file('az_trainer_prediction')
+
+        numbered_classes_list = []
+        for class_id in self.classesList.keys():
+            numbered_classes_list.append(self.classesList[class_id] + ' (' + str(class_id + 1) + ')')
+
+        self.classCandidate['values'] = numbered_classes_list
+        self.classCandidate.current(0)
+        self.class_on_create()
+        self.classCandidate.bind("<<ComboboxSelected>>", self.class_on_create)
+
+    def load_classes_from_file(self, key):
+        classes_file = os.path.join(self.modelDir, 'data.yaml')
+        classes_dict = {0: "generic"}  # Initialize with 'generic' at index 0
+
+        if not os.path.exists(classes_file):
+            return classes_dict
+        
+        with open(classes_file, 'r') as file:
+            data = yaml.safe_load(file)
+            # Extract the values from the 'names' dictionary and sort by the key to ensure the order
+            classes_dict.update(data.get(key, {}))
+        
+        return classes_dict
 
     def batch_download_select(self, event=None):
         self.download_batch()
@@ -707,8 +722,16 @@ class LabelTool:
             # probs = result.probs  # Probs object for classification outputs
             for box in result.boxes:
                 class_index = int(box.cls.item())
-                for x1, y1, x2, y2 in box.xyxy:
-                    results.append((int(x1) * ZOOM_RATIO, int(y1) * ZOOM_RATIO, int(x2) * ZOOM_RATIO, int(y2) * ZOOM_RATIO, class_index, False))
+                if class_index in self.yolo_prediction_classes.keys():
+                    class_name = self.yolo_prediction_classes[class_index]
+                    index = self.get_key_from_value(self.classesList, class_name)
+
+                    # safety mechanism not to crash if yolo gives higher class then target model supports
+                    if index not in self.classesList:
+                        index = 0
+
+                    for x1, y1, x2, y2 in box.xyxy:
+                        results.append((int(x1) * ZOOM_RATIO, int(y1) * ZOOM_RATIO, int(x2) * ZOOM_RATIO, int(y2) * ZOOM_RATIO, index, False))
 
         return results
 
@@ -728,7 +751,7 @@ class LabelTool:
         with open(annotation_file_path, 'w') as file:
             for annotationListItem in annotations:
                 annotation = ast.literal_eval(annotationListItem)
-                class_ = self.classesList.index(annotation['class'])
+                class_ = self.get_key_from_value(self.classesList, annotation['class'])
                 center_x = (annotation['x1'] + annotation['x2']) / 2. / img_width
                 center_y = (annotation['y1'] + annotation['y2']) / 2. / img_height
                 height = abs(annotation['x1'] - annotation['x2']) * 1. / img_width
@@ -748,7 +771,7 @@ class LabelTool:
             self.STATE['class'], self.STATE['x1'], self.STATE['y1'] = self.currentLabelClass, event.x, event.y
         else:
             self.STATE['x2'], self.STATE['y2'] = event.x, event.y
-            bbox_id = self.create_bbox(self.STATE['x1'], self.STATE['y1'], self.STATE['x2'], self.STATE['y2'], COLORS[self.get_index_of_class(self.STATE['class'])], True)
+            bbox_id = self.create_bbox(self.STATE['x1'], self.STATE['y1'], self.STATE['x2'], self.STATE['y2'], COLORS[self.get_key_from_value(self.classesList, self.STATE['class'])], True)
             self.STATE['id'], self.STATE['selected'] = bbox_id, True  # attributes in order
 
             # For other boxes, set the 'selected' attribute to False
@@ -793,7 +816,7 @@ class LabelTool:
         if self.STATE != {}:
             if self.curBBoxId:
                 self.mainPanel.delete(self.curBBoxId)
-            self.curBBoxId = self.mainPanel.create_rectangle(self.STATE['x1'], self.STATE['y1'], event.x, event.y, width=2, outline=COLORS[self.get_index_of_class(self.currentLabelClass)])
+            self.curBBoxId = self.mainPanel.create_rectangle(self.STATE['x1'], self.STATE['y1'], event.x, event.y, width=2, outline=COLORS[self.get_key_from_value(self.classesList, self.currentLabelClass)])
 
     def class_on_create(self, event=None):
         index = self.classCandidate.current()
@@ -911,7 +934,7 @@ class LabelTool:
         try:
             # Safely evaluate the string as a Python literal expression
             selected_dict = ast.literal_eval(selected_str)
-            selected_class = self.get_index_of_class(selected_dict['class'])
+            selected_class = self.get_key_from_value(self.classesList, selected_dict['class'])
 
             # Update the dictionary to include 'selected': true
             selected_dict['selected'] = True
@@ -929,7 +952,7 @@ class LabelTool:
                 if i != idx:
                     other_str = self.annotationsList.get(i)
                     other_dict = ast.literal_eval(other_str)
-                    other_class = self.get_index_of_class(other_dict['class'])
+                    other_class = self.get_key_from_value(self.classesList, other_dict['class'])
                     if 'selected' in other_dict:
                         other_dict['selected'] = False
 
@@ -946,15 +969,16 @@ class LabelTool:
         for item in self.annotationsList.get(0, END):
             bbox = ast.literal_eval(item)
             self.mainPanel.delete(bbox['id'])
-            current_class = self.get_index_of_class(bbox['class'])
+            current_class = self.get_key_from_value(self.classesList, bbox['class'])
             self.create_bbox(bbox['x1'], bbox['y1'], bbox['x2'], bbox['y2'], color=COLORS[current_class], selected=bbox['selected'])
 
-    def get_index_of_class(self, search_string):
-        try:
-            index = self.classesList.index(search_string)
-            return index
-        except ValueError:
-            return -1  # Return -1 if the string is not found in the list
+    def get_key_from_value(self, dictionary, search_value):
+        # Iterate over all items in the dictionary
+        for key, value in dictionary.items():
+            # Check if the current value matches the search value
+            if value == search_value:
+                return key  # Return the key corresponding to the value
+        return None  # Return None if the value is not found in the dictionary
 
 
 if __name__ == '__main__':
